@@ -211,7 +211,7 @@ function zapAbrir(cid) { window.open(zapLink(S.c.find(x => x.id == cid), $('#zt'
 
 function pick(sel) {
   const r = sel.closest('.it'), p = S.pr.find(x => x.id == sel.value);
-  r.classList.toggle('cat', !!p);
+  r.classList.toggle('sel', !!p);
   if (!p) { r.querySelector('[name=produto]').value = ''; return calc(); }
   r.querySelector('[name=produto]').value = p.nome;
   r.querySelector('[name=categoria]').value = p.categoria;
