@@ -32,7 +32,7 @@ function go(v, id) { cur = v; curId = id || null; render(); window.scrollTo(0, 0
 function render() {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav == cur || (cur == 'ficha' && b.dataset.nav == 'clientes')));
   $('#view').innerHTML = { dash, clientes, venda, ficha, catalogo, relatorio, financeiro }[cur]();
-  if (cur == 'venda') addItem();
+  if (cur == 'venda') { addItem(); calc(); }
 }
 function modal(h) { $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet">${h}</div></div>`; }
 function fecha() { $('#modal').innerHTML = ''; }
@@ -137,26 +137,36 @@ function venda() {
   <div id="its"></div>
   <button type="button" class="btn alt" onclick="addItem()">+ Adicionar item</button>
   <div class="card row"><span>Total da venda</span><b id="tot">R$ 0,00</b></div>
-  <input class="inp" name="pago" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Valor pago agora (deixe vazio se for fiado)">
+  <input class="inp" name="pago" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Valor pago agora (deixe vazio se for fiado)" oninput="calc()">
   <select class="inp" name="forma">${opts(FORMAS)}</select>
-  <div class="grid"><label><small>Parcelas do restante</small><input class="inp" name="np" type="number" min="1" max="24" value="1"></label><label><small>1º vencimento</small><input class="inp" name="venc" type="date" value="${venc30()}" required></label></div>
+  <div class="grid"><label><small>Nº de parcelas</small><input class="inp" name="np" type="number" min="1" max="24" value="1" oninput="calc()"></label><label><small>1º vencimento</small><input class="inp" name="venc" type="date" value="${proxDia5()}" oninput="calc()" required></label></div>
+  <div class="card" id="prev"></div>
   <button class="btn w">Registrar venda</button></form>`;
 }
 function addItem() {
   const d = document.createElement('div');
   d.className = 'card it';
-  d.innerHTML = `<select class="inp" onchange="pick(this)"><option value="">Item avulso (digitar)</option>${S.pr.map(p => `<option value="${p.id}">${esc(p.nome)} — ${R(p.preco)}</option>`).join('')}</select>
-  <input class="inp" name="produto" placeholder="Produto" required>
-  <div class="grid3"><select class="inp" name="categoria">${opts(CATS)}</select>
-  <input class="inp" name="quantidade" type="number" min="1" value="1" oninput="calc()">
-  <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço un." oninput="calc()" required></div>
-  <button type="button" class="lnk" onclick="this.parentNode.remove();calc()">Remover item</button>`;
+  d.innerHTML = `<select class="inp" onchange="pick(this)"><option value="">Item avulso (digitar nome)</option>${S.pr.map(p => `<option value="${p.id}">${esc(p.nome)} — ${R(p.preco)}</option>`).join('')}</select>
+  <input class="inp" name="produto" placeholder="Nome do item" required>
+  <div class="grid3"><label><small>Categoria</small><select class="inp" name="categoria">${opts(CATS)}</select></label>
+  <label><small>Qtd</small><input class="inp" name="quantidade" type="number" min="1" value="1" oninput="calc()"></label>
+  <label><small>Preço un. (R$)</small><input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00" oninput="calc()" required></label></div>
+  <div class="row"><button type="button" class="lnk" onclick="this.closest('.it').remove();calc()">Remover item</button><b class="sub"></b></div>`;
   $('#its').append(d);
+}
+function plano(resto, n, venc) {
+  const base = Math.floor(resto / n * 100) / 100;
+  return [...Array(n)].map((_, k) => { const d = new Date(venc + 'T12:00:00'); d.setMonth(d.getMonth() + k); return { numero: k + 1, vencimento: dia2(d), valor: k == n - 1 ? +(resto - base * (n - 1)).toFixed(2) : base }; });
 }
 function calc() {
   let t = 0;
-  document.querySelectorAll('.it').forEach(r => t += r.querySelector('[name=quantidade]').value * r.querySelector('[name=preco]').value);
+  document.querySelectorAll('.it').forEach(r => { const x = r.querySelector('[name=quantidade]').value * r.querySelector('[name=preco]').value; t += x; r.querySelector('.sub').textContent = 'Subtotal ' + R(x); });
   $('#tot').textContent = R(t);
+  const f = $('#view form');
+  if (f && f.pago && $('#prev')) {
+    const resto = t - (+f.pago.value || 0), n = Math.max(1, Math.min(24, +f.np.value || 1));
+    $('#prev').innerHTML = resto > 0.005 && f.venc.value ? `<b>${n}× de ${R(resto / n)}</b><small class="blk">Vencimentos: ${plano(resto, n, f.venc.value).map(x => dt(x.vencimento)).join(' · ')}</small>` : t > 0 ? '<small>Pago à vista, sem parcelas.</small>' : '';
+  }
   return t;
 }
 async function salvaVenda(e) {
@@ -173,9 +183,8 @@ async function salvaVenda(e) {
   if (pago > 0) await db.from('pagamentos').insert({ cliente_id: cid, venda_id: v.id, valor: pago, forma: f.forma.value });
   const resto = total - pago;
   if (resto > 0.005) {
-    const n = Math.max(1, Math.min(24, +f.np.value || 1)), base = Math.floor(resto / n * 100) / 100, pa = [];
-    for (let k = 0; k < n; k++) { const d = new Date(f.venc.value + 'T12:00:00'); d.setMonth(d.getMonth() + k); pa.push({ venda_id: v.id, cliente_id: cid, numero: k + 1, vencimento: mes(d) + '-' + String(d.getDate()).padStart(2, '0'), valor: k == n - 1 ? +(resto - base * (n - 1)).toFixed(2) : base }); }
-    await db.from('parcelas').insert(pa);
+    const n = Math.max(1, Math.min(24, +f.np.value || 1));
+    await db.from('parcelas').insert(plano(resto, n, f.venc.value).map(x => ({ ...x, venda_id: v.id, cliente_id: cid })));
   }
   await load(); go('ficha', cid); zapVenda(v.id);
 }
@@ -183,25 +192,30 @@ async function salvaVenda(e) {
 const fone = t => { const d = (t || '').replace(/\D/g, ''); return d.length <= 11 ? '55' + d : d; };
 const zapLink = (c, txt) => `https://wa.me/${fone(c.telefone)}?text=${encodeURIComponent(txt)}`;
 function msgVenda(v, c) {
-  const pago = sum(S.p.filter(p => p.venda_id == v.id), p => p.valor);
-  return `Olá, ${c.nome}! Segue o resumo da sua compra na Rozivaldo Vendas (${new Date(v.data).toLocaleDateString('pt-BR')}):\n` +
+  const pago = sum(S.p.filter(p => p.venda_id == v.id), p => p.valor), pa = S.pa.filter(x => x.venda_id == v.id).sort((a, b) => a.numero - b.numero);
+  return `Olá, ${c.nome}! Obrigado por realizar sua compra na Rozivaldo Store 🛍️\n\nSeus produtos são:\n` +
     v.itens_venda.map(t => `• ${t.quantidade}x ${t.produto} — ${R(t.quantidade * t.preco_unit)}`).join('\n') +
-    `\n*Total: ${R(v.total)}*\nPago: ${R(pago)}\nSaldo total em aberto: ${R(info(c.id).s)}\nObrigado pela preferência!`;
+    `\n\n*Valor total: ${R(v.total)}*` + (pago > 0 ? `\nPago na compra: ${R(pago)}` : '') +
+    (pa.length ? `\n\nParcelas:\n` + pa.map(x => `${x.numero}ª — ${dt(x.vencimento)} — ${R(x.valor)}`).join('\n') : '') +
+    `\n\nObrigado pela preferência! 💜`;
 }
 function zapVenda(id) {
   const v = S.v.find(x => x.id == id), c = S.c.find(x => x.id == v.cliente_id);
-  if (!c.telefone) return toast('Cadastre o WhatsApp do cliente (Editar cliente) para enviar o resumo');
-  const m = msgVenda(v, c);
-  modal(`<h2>Enviar resumo no WhatsApp</h2><pre class="card" style="white-space:pre-wrap;font:inherit">${esc(m)}</pre>
-  <a class="btn w blk" style="text-align:center" target="_blank" href="${zapLink(c, m)}" onclick="fecha()">Abrir WhatsApp de ${esc(c.nome)}</a>`);
+  if (!c.telefone) return toast('Cadastre o WhatsApp do cliente (botão Editar) para enviar a mensagem');
+  modal(`<h2>Mensagem de agradecimento</h2><small>Você pode editar o texto antes de enviar.</small>
+  <textarea id="zt" class="inp" rows="13">${esc(msgVenda(v, c))}</textarea>
+  <button class="btn w" onclick="zapAbrir('${c.id}')">Abrir WhatsApp de ${esc(c.nome)}</button>
+  <button class="lnk" onclick="fecha()">Agora não</button>`);
 }
+function zapAbrir(cid) { window.open(zapLink(S.c.find(x => x.id == cid), $('#zt').value), '_blank'); fecha(); }
 
 function pick(sel) {
   const r = sel.closest('.it'), p = S.pr.find(x => x.id == sel.value);
-  if (!p) return;
+  r.classList.toggle('cat', !!p);
+  if (!p) { r.querySelector('[name=produto]').value = ''; return calc(); }
   r.querySelector('[name=produto]').value = p.nome;
   r.querySelector('[name=categoria]').value = p.categoria;
-  r.querySelector('[name=preco]').value = p.preco;
+  r.querySelector('[name=preco]').value = Number(p.preco).toFixed(2);
   calc();
 }
 
@@ -247,6 +261,7 @@ function relRes(ret) {
   const cat = CATS.map(k => [k, sum(vs.flatMap(v => v.itens_venda).filter(t => t.categoria == k), t => t.quantidade * t.preco_unit)]);
   const h = `<div class="grid"><div class="card"><small>Vendido no período</small><b class="blk">${R(sum(vs, v => v.total))}</b></div>
   <div class="card"><small>Recebido no período</small><b class="blk grn">${R(sum(ps, p => p.valor))}</b></div></div>
+  <h2>Quanto vou receber por mês</h2><small>Parcelas por mês de vencimento. Toque no mês para ver quem paga.</small>${previsao()}
   <h2>Produtos mais vendidos</h2>${top.map(([n, q]) => `<div class="card row"><span>${esc(n)}</span><b>${q} un.</b></div>`).join('') || '<p class="mut">Sem vendas neste filtro.</p>'}
   <h2>Por categoria</h2>${cat.map(([k, t]) => `<div class="card row"><span>${k}</span><b>${R(t)}</b></div>`).join('')}
   <div class="row"><h2>Vendas (${vs.length})</h2><button class="btn alt" onclick="csv()">Baixar planilha</button></div>
@@ -269,7 +284,7 @@ const TAG = { Paga: 'ok', Pago: 'ok', Atrasada: 'bad', Atrasado: 'bad', 'A vence
 const tag = x => `<em class="tag ${TAG[x]}">${x}</em>`;
 const dia2 = d => mes(d) + '-' + String(d.getDate()).padStart(2, '0');
 const HOJE = dia2(new Date());
-const venc30 = () => { const d = new Date(); d.setDate(d.getDate() + 30); return dia2(d); };
+const proxDia5 = () => { const d = new Date(); d.setDate(5); d.setMonth(d.getMonth() + 1); return dia2(d); };
 const dt = x => x.split('-').reverse().join('/');
 const foto = p => p.foto ? `<img class="ph" src="${p.foto}" alt="">` : '<div class="ph">🛍️</div>';
 const redim = f => new Promise(ok => {
@@ -301,6 +316,15 @@ function financeiro() {
   return `<h1>Financeiro</h1><p class="mut">Parcelas em aberto: ${t.length} · ${R(sum(t, x => x.falta))}</p>${t.map(parcRow).join('') || '<p class="mut">Nenhuma parcela em aberto.</p>'}`;
 }
 
+function previsao() {
+  const g = {};
+  todasParc().filter(x => !F.cli || x.c.id == F.cli).forEach(x => { (g[x.vencimento.slice(0, 7)] = g[x.vencimento.slice(0, 7)] || []).push(x); });
+  return Object.keys(g).sort().map(k => {
+    const l = g[k], [a, m] = k.split('-'), falta = sum(l, x => x.falta);
+    const lab = new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return `<details class="card"><summary class="row"><b>${lab}</b><span><b class="${falta > 0.005 ? '' : 'grn'}">${R(falta)}</b> <small>de ${R(sum(l, x => x.valor))}</small> ${k < HOJE.slice(0, 7) && falta > 0.005 ? tag('Atrasado') : ''}</span></summary>${l.filter(x => x.falta > 0.005).sort((p, q) => p.vencimento < q.vencimento ? -1 : 1).map(parcRow).join('') || '<small>Tudo recebido neste mês.</small>'}</details>`;
+  }).join('') || '<p class="mut">Nenhuma parcela cadastrada ainda.</p>';
+}
 async function del(t, id) {
   if (!confirm(t == 'clientes' ? 'Excluir o cliente E todas as compras e pagamentos dele? Não dá para desfazer.' : 'Excluir este registro? Não dá para desfazer.')) return;
   const { error } = await db.from(t).delete().eq('id', id);

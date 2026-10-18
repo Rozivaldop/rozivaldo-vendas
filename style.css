@@ -40,3 +40,5 @@ th{text-align:left;color:var(--mut);font-weight:400;padding:8px 6px}td{padding:1
 @media(max-width:820px){#app{display:block}main{padding:16px 14px 84px}.two{grid-template-columns:1fr}
 aside{position:fixed;top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;padding:0;gap:0;z-index:10;border-top:1px solid var(--line)}
 .logo{display:none}aside button{flex:1;flex-direction:column;gap:2px;padding:8px 2px;font-size:.58rem;text-align:center;border-radius:0}}
+
+.it.cat input[name=produto]{display:none}summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}details[open]>summary{margin-bottom:8px}textarea.inp{resize:vertical}
