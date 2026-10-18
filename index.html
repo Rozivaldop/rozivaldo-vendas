@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rozivaldo Vendas</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" class="max-w-sm mx-auto mt-24 p-4" hidden>
+  <h1 class="text-3xl font-extrabold mb-4">Rozivaldo Vendas</h1>
+  <form id="lf">
+    <input id="em" type="email" class="inp" placeholder="E-mail" required>
+    <input id="pw" type="password" class="inp" placeholder="Senha" required>
+    <button class="btn w">Entrar</button>
+  </form>
+</div>
+<div id="app" hidden>
+  <main id="view"></main>
+  <nav>
+    <button data-nav="dash" onclick="go('dash')">Início</button>
+    <button data-nav="clientes" onclick="go('clientes')">Clientes</button>
+    <button data-nav="venda" onclick="go('venda')">Nova venda</button>
+    <button onclick="sair()">Sair</button>
+  </nav>
+</div>
+<div id="modal"></div>
+<div id="toast"></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
