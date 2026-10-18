@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Rozivaldo Vendas</title>
+<title>Rozivaldo Store</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="login" class="max-w-sm mx-auto mt-24 p-4" hidden>
-  <h1 class="text-3xl font-extrabold mb-4">Rozivaldo Vendas</h1>
+  <h1 class="text-3xl font-extrabold mb-4">Rozivaldo Store</h1>
   <form id="lf">
     <input id="em" type="email" class="inp" placeholder="E-mail" required>
     <input id="pw" type="password" class="inp" placeholder="Senha" required>
@@ -19,13 +19,20 @@
   </form>
 </div>
 <div id="app" hidden>
+  <aside>
+    <div class="logo">
+      <svg viewBox="0 0 64 64" width="54" height="54"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#cbd5e1" font-family="sans-serif">R</text></svg>
+      <div><b>ROZIVALDO</b> STORE</div><small>MODA · LINGERIE · SEX SHOP</small>
+    </div>
+    <button data-nav="dash" onclick="go('dash')"><i>📊</i>Dashboard</button>
+    <button data-nav="clientes" onclick="go('clientes')"><i>👥</i>Clientes</button>
+    <button data-nav="catalogo" onclick="go('catalogo')"><i>🏷️</i>Produtos</button>
+    <button data-nav="venda" onclick="go('venda')"><i>🛒</i>Nova venda</button>
+    <button data-nav="financeiro" onclick="go('financeiro')"><i>💰</i>Financeiro</button>
+    <button data-nav="relatorio" onclick="go('relatorio')"><i>📈</i>Relatórios</button>
+    <button onclick="sair()"><i>🚪</i>Sair</button>
+  </aside>
   <main id="view"></main>
-  <nav>
-    <button data-nav="dash" onclick="go('dash')">Início</button>
-    <button data-nav="clientes" onclick="go('clientes')">Clientes</button>
-    <button data-nav="venda" onclick="go('venda')">Nova venda</button>
-    <button onclick="sair()">Sair</button>
-  </nav>
 </div>
 <div id="modal"></div>
 <div id="toast"></div>
