@@ -19,19 +19,24 @@
   </form>
 </div>
 <div id="app" hidden>
-  <aside>
+  <aside id="side">
     <div class="logo">
       <svg viewBox="0 0 64 64" width="54" height="54"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#cbd5e1" font-family="sans-serif">R</text></svg>
       <div><b>ROZIVALDO</b> STORE</div><small>MODA · LINGERIE · SEX SHOP</small>
     </div>
-    <button data-nav="dash" onclick="go('dash')"><i>📊</i>Dashboard</button>
-    <button data-nav="clientes" onclick="go('clientes')"><i>👥</i>Clientes</button>
-    <button data-nav="catalogo" onclick="go('catalogo')"><i>🏷️</i>Produtos</button>
-    <button data-nav="venda" onclick="go('venda')"><i>🛒</i>Nova venda</button>
-    <button data-nav="financeiro" onclick="go('financeiro')"><i>💰</i>Financeiro</button>
-    <button data-nav="relatorio" onclick="go('relatorio')"><i>📈</i>Relatórios</button>
-    <button onclick="sair()"><i>🚪</i>Sair</button>
+    <button data-nav="dash" onclick="go('dash')">📊 Dashboard</button>
+    <button data-nav="clientes" onclick="go('clientes')">👥 Clientes</button>
+    <details open><summary>🏷️ Produtos</summary>
+      <button onclick="go('catalogo');formProd()">Adicionar</button><button data-nav="catalogo" onclick="go('catalogo')">Lista</button></details>
+    <details open><summary>🛒 Vendas</summary>
+      <button data-nav="venda" onclick="go('venda')">Nova venda</button><button data-nav="pedidos" onclick="go('pedidos')">Pedidos online<span id="pbadge"></span></button><button data-nav="historico" onclick="go('historico')">Histórico</button></details>
+    <details open><summary>💰 Financeiro</summary>
+      <button data-nav="financeiro" onclick="go('financeiro')">Parcelas</button><button data-nav="recebimentos" onclick="go('recebimentos')">Recebimentos</button><button data-nav="contas" onclick="go('contas')">Contas a pagar</button></details>
+    <button data-nav="relatorio" onclick="go('relatorio')">📈 Relatórios</button>
+    <button data-nav="ajustes" onclick="go('ajustes')">⚙️ Configurações</button>
+    <button onclick="sair()">🚪 Sair</button>
   </aside>
+  <header id="top"><button onclick="menu()">☰</button><span>Rozivaldo Store</span></header>
   <main id="view"></main>
 </div>
 <div id="modal"></div>

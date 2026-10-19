@@ -9,30 +9,33 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [] }, cur = 'dash', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [] }, cur = 'dash', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
 async function load() {
-  const [c, v, p, pr, pa] = await Promise.all([
+  const [c, v, p, pr, pa, ct, pd] = await Promise.all([
     db.from('clientes').select('*').order('nome'),
     db.from('vendas').select('*, itens_venda(*)').order('data', { ascending: false }),
     db.from('pagamentos').select('*').order('criado_em', { ascending: false }),
     db.from('produtos').select('*').order('nome'),
-    db.from('parcelas').select('*')
+    db.from('parcelas').select('*'),
+    db.from('contas').select('*'),
+    db.from('pedidos').select('*').eq('status', 'novo').order('criado_em', { ascending: false })
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pd: pd.data || [] };
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
   const t = sum(vs, v => v.total), p = sum(ps, x => x.valor);
   return { vs, ps, t, p, s: t - p };
 }
-function go(v, id) { cur = v; curId = id || null; render(); window.scrollTo(0, 0); }
+function go(v, id) { $('#side').classList.remove('open'); cur = v; curId = id || null; render(); window.scrollTo(0, 0); }
 function render() {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav == cur || (cur == 'ficha' && b.dataset.nav == 'clientes')));
-  $('#view').innerHTML = { dash, clientes, venda, ficha, catalogo, relatorio, financeiro }[cur]();
-  if (cur == 'venda') { addItem(); calc(); }
+  $('#view').innerHTML = { dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
+  if (cur == 'venda') iniciaVenda();
+  $('#pbadge').textContent = S.pd.length ? ' (' + S.pd.length + ')' : '';
 }
 function modal(h) { $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet">${h}</div></div>`; }
 function fecha() { $('#modal').innerHTML = ''; }
@@ -51,6 +54,7 @@ function dash() {
     <div class="card kpi"><small>CLIENTES</small><b>${S.c.length}</b></div>
     <div class="card kpi"><small>VALOR A RECEBER</small><b>${R(tv - rec)}</b></div>
     <div class="card kpi bad"><small>PARCELAS ATRASADAS</small><b>${at.length}</b><small>${R(sum(at, x => x.falta))}</small></div>
+    <div class="card kpi"><small>ENTREGA PENDENTE</small><b>${S.v.filter(v => v.entregue === false).length}</b></div>
   </div>
   <div class="two"><div class="card"><h2>Resumo de vendas</h2><small>Últimos 7 meses</small>
     <div class="bars">${ms.map((x, i) => `<div class="col"><span>${vals[i] ? R(vals[i]).replace('R$', '').trim() : ''}</span><div class="fill"><i style="height:${vals[i] / mx * 100}%"></i></div><span>${x.l}</span></div>`).join('')}</div></div>
@@ -110,7 +114,7 @@ function ficha() {
   <h2>Compras</h2>
   ${i.vs.map(v => `<div class="card"><div class="row"><b>${D(v.data)}</b><b>${R(v.total)}</b></div>
     ${(v.itens_venda || []).map(t => `<small class="blk">${t.quantidade}× ${esc(t.produto)} (${t.categoria}) — ${R(t.preco_unit)}</small>`).join('')}
-    <div class="row"><button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk" onclick="del('vendas','${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
+    <div class="row">${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}<button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk" onclick="del('vendas','${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
   <h2>Pagamentos recebidos</h2>
   ${i.ps.map(p => `<div class="card row"><span>${D(p.criado_em)}<small class="blk">${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b><button class="lnk" onclick="del('pagamentos','${p.id}')">Excluir</button></div>`).join('') || '<p class="mut">Nenhum pagamento ainda.</p>'}`;
 }
@@ -132,7 +136,12 @@ async function salvaPag(e, id) {
 }
 
 function venda() {
-  return `<h1>Nova venda</h1><form onsubmit="salvaVenda(event)">
+  return `<h1>Nova venda</h1>
+  <div class="card"><small>🎤 Lançar por voz ou texto</small>
+  <div class="row" style="flex-wrap:nowrap"><input class="inp" id="frase" placeholder="Ex: venda para Maria, uma camisa polo de 119,90 em 3 vezes" onkeydown="if(event.key=='Enter'){event.preventDefault();aplicaVoz(this.value)}">
+  <button type="button" class="btn" onclick="ouvir()">🎤</button><button type="button" class="btn alt" onclick="aplicaVoz($('#frase').value)">Preencher</button></div>
+  <small id="fb" class="blk"></small></div>
+  <form onsubmit="salvaVenda(event)">
   <select class="inp" name="cliente_id" required><option value="">Escolha o cliente</option>${S.c.map(c => `<option value="${c.id}" ${c.id == curId ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
   <div id="its"></div>
   <button type="button" class="btn alt" onclick="addItem()">+ Adicionar item</button>
@@ -141,6 +150,7 @@ function venda() {
   <select class="inp" name="forma">${opts(FORMAS)}</select>
   <div class="grid"><label><small>Nº de parcelas</small><input class="inp" name="np" type="number" min="1" max="24" value="1" oninput="calc()"></label><label><small>1º vencimento</small><input class="inp" name="venc" type="date" value="${proxDia5()}" oninput="calc()" required></label></div>
   <div class="card" id="prev"></div>
+  <label class="card row"><span>🚚 Entrega pendente</span><input type="checkbox" name="pend"></label>
   <button class="btn w">Registrar venda</button></form>`;
 }
 function addItem() {
@@ -176,7 +186,7 @@ async function salvaVenda(e) {
   if (!itens.length) return toast('Adicione ao menos um item');
   const total = calc(), pago = +f.pago.value || 0, cid = f.cliente_id.value;
   if (pago > total) return toast('O valor pago é maior que o total da venda');
-  const { data: v, error } = await db.from('vendas').insert({ cliente_id: cid, total }).select().single();
+  const { data: v, error } = await db.from('vendas').insert({ cliente_id: cid, total, entregue: !f.pend.checked }).select().single();
   if (error) return toast('Erro: ' + error.message);
   const r1 = await db.from('itens_venda').insert(itens.map(x => ({ ...x, venda_id: v.id })));
   if (r1.error) { await db.from('vendas').delete().eq('id', v.id); return toast('Erro: ' + r1.error.message); }
@@ -186,6 +196,7 @@ async function salvaVenda(e) {
     const n = Math.max(1, Math.min(24, +f.np.value || 1));
     await db.from('parcelas').insert(plano(resto, n, f.venc.value).map(x => ({ ...x, venda_id: v.id, cliente_id: cid })));
   }
+  if (PEDIDO) { await db.from('pedidos').update({ status: 'convertido' }).eq('id', PEDIDO); PEDIDO = null; }
   await load(); go('ficha', cid); zapVenda(v.id);
 }
 
@@ -221,6 +232,8 @@ function pick(sel) {
 
 function catalogo() {
   return `<div class="row"><h1>Catálogo</h1><button class="btn" onclick="formProd()">+ Novo produto</button></div>
+  <div class="card"><small>🔗 Link da vitrine para seus clientes</small><b class="blk" style="word-break:break-all">${LINK()}</b>
+  <div class="row" style="margin-top:8px"><button class="btn" onclick="copiaLink()">Copiar link</button><a class="btn alt" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Veja nosso catálogo: ' + LINK())}">Enviar no WhatsApp</a></div></div>
   ${CATS.map(k => { const l = S.pr.filter(p => p.categoria == k); return l.length ? `<h2>${k}</h2>` + l.map(p => `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}</b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`).join('') : ''; }).join('')}
   ${S.pr.length ? '' : '<p class="mut">Catálogo vazio. Cadastre seus produtos para escolher na hora da venda.</p>'}`;
 }
@@ -231,12 +244,13 @@ function formProd(id) {
   <select class="inp" name="categoria">${opts(CATS)}</select>
   <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço (R$)" value="${p.preco ?? ''}" required>
   <label><small>Foto (opcional)</small><input class="inp" name="foto" type="file" accept="image/*"></label>
+  <label class="row"><span>Mostrar na vitrine online</span><input type="checkbox" name="vitrine" ${p.vitrine === false ? '' : 'checked'}></label>
   <button class="btn w">Salvar produto</button></form>`);
   if (p.categoria) document.querySelector('#modal [name=categoria]').value = p.categoria;
 }
 async function salvaProd(e, id) {
   e.preventDefault();
-  const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco') };
+  const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco'), vitrine: fd.get('vitrine') == 'on' };
   const file = fd.get('foto'); if (file && file.size) d.foto = await redim(file);
   const { error } = id ? await db.from('produtos').update(d).eq('id', id) : await db.from('produtos').insert(d);
   if (error) return toast('Erro: ' + error.message);
@@ -325,6 +339,178 @@ function previsao() {
     return `<details class="card"><summary class="row"><b>${lab}</b><span><b class="${falta > 0.005 ? '' : 'grn'}">${R(falta)}</b> <small>de ${R(sum(l, x => x.valor))}</small> ${k < HOJE.slice(0, 7) && falta > 0.005 ? tag('Atrasado') : ''}</span></summary>${l.filter(x => x.falta > 0.005).sort((p, q) => p.vencimento < q.vencimento ? -1 : 1).map(parcRow).join('') || '<small>Tudo recebido neste mês.</small>'}</details>`;
   }).join('') || '<p class="mut">Nenhuma parcela cadastrada ainda.</p>';
 }
+function menu() { $('#side').classList.toggle('open'); }
+document.addEventListener('click', e => { if (!e.target.closest('aside,#top')) $('#side').classList.remove('open'); });
+async function entregar(id) {
+  const { error } = await db.from('vendas').update({ entregue: true }).eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); toast('Entrega concluída');
+}
+
+let H = { q: '', st: '' }, M = mes(new Date());
+const cn = id => esc((S.c.find(c => c.id == id) || {}).nome);
+function historico() {
+  return `<h1>Histórico de vendas</h1><div class="grid"><input class="inp" placeholder="Buscar cliente" value="${esc(H.q)}" oninput="H.q=this.value;histRes()">
+  <select class="inp" onchange="H.st=this.value;histRes()">${['', 'Pago', 'Pendente', 'Atrasado'].map(x => `<option value="${x}" ${H.st == x ? 'selected' : ''}>${x || 'Todos os status'}</option>`).join('')}</select></div><div id="hist">${histRes(1)}</div>`;
+}
+function histRes(r) {
+  const l = S.v.filter(v => (S.c.find(c => c.id == v.cliente_id) || {}).nome?.toLowerCase().includes(H.q.toLowerCase()) && (!H.st || stVenda(v) == H.st));
+  const h = `<small>${l.length} vendas · ${R(sum(l, v => v.total))}</small>` + (l.map(v => `<div class="card"><div class="row"><b>${cn(v.cliente_id)}</b><span>${R(v.total)} ${tag(stVenda(v))} ${v.entregue === false ? '<em class="tag wait">Entrega pendente</em>' : ''}</span></div>
+    <small class="blk">${D(v.data)} · ${v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', ')}</small>
+    <div class="row"><button class="lnk" onclick="go('ficha','${v.cliente_id}')">Abrir cliente</button><button class="lnk" onclick="zapVenda('${v.id}')">WhatsApp</button>${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}</div></div>`).join('') || '<p class="mut">Nenhuma venda encontrada.</p>');
+  if (r) return h;
+  $('#hist').innerHTML = h;
+}
+
+function recebimentos() {
+  return `<h1>Recebimentos</h1><input class="inp" type="month" value="${M}" onchange="M=this.value;recRes()"><div id="rec">${recRes(1)}</div>`;
+}
+function recRes(r) {
+  const l = S.p.filter(p => mes(p.criado_em) == M);
+  const h = `<div class="card"><small>Total recebido no mês</small><b class="blk grn" style="font-size:1.6rem">${R(sum(l, p => p.valor))}</b>
+    <small class="blk">${FORMAS.map(f => f + ': ' + R(sum(l.filter(p => p.forma == f), p => p.valor))).join(' · ')}</small></div>` +
+    (l.map(p => `<div class="card row"><span><b>${cn(p.cliente_id)}</b><small class="blk">${D(p.criado_em)} · ${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b></div>`).join('') || '<p class="mut">Nenhum recebimento neste mês.</p>');
+  if (r) return h;
+  $('#rec').innerHTML = h;
+}
+
+function contas() {
+  const l = [...S.ct].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1), mm = mes(new Date());
+  const saldo = sum(S.p.filter(p => mes(p.criado_em) == mm), p => p.valor) - sum(S.ct.filter(x => x.pago && mes(x.pago_em) == mm), x => x.valor);
+  return `<div class="row"><h1>Contas a pagar</h1><button class="btn" onclick="formConta()">+ Nova conta</button></div>
+  <div class="grid"><div class="card"><small>Em aberto</small><b class="blk red">${R(sum(l.filter(x => !x.pago), x => x.valor))}</b></div>
+  <div class="card"><small>Saldo do mês (recebido − contas pagas)</small><b class="blk ${saldo >= 0 ? 'grn' : 'red'}">${R(saldo)}</b></div></div>
+  ${l.map(x => `<div class="card row"><span><b>${esc(x.descricao)}</b><small class="blk">vence ${dt(x.vencimento)}</small></span><span>${R(x.valor)} ${x.pago ? tag('Pago') : tag(x.vencimento < HOJE ? 'Atrasado' : 'A vencer')}
+    ${x.pago ? '' : `<button class="lnk" onclick="pagaConta('${x.id}')">Dar baixa</button>`}<button class="lnk red" onclick="del('contas','${x.id}')">Excluir</button></span></div>`).join('') || '<p class="mut">Nenhuma conta cadastrada.</p>'}`;
+}
+function formConta() {
+  modal(`<h2>Nova conta a pagar</h2><form onsubmit="salvaConta(event)">
+  <input class="inp" name="descricao" placeholder="Descrição (ex: fornecedor, aluguel)" required>
+  <input class="inp" name="valor" type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="Valor (R$)" required>
+  <label><small>Vencimento</small><input class="inp" name="vencimento" type="date" value="${HOJE}" required></label>
+  <button class="btn w">Salvar conta</button></form>`);
+}
+async function salvaConta(e) {
+  e.preventDefault();
+  const d = Object.fromEntries(new FormData(e.target)); d.valor = +d.valor;
+  const { error } = await db.from('contas').insert(d);
+  if (error) return toast('Erro: ' + error.message);
+  fecha(); await load(); render(); toast('Conta salva');
+}
+async function pagaConta(id) {
+  const { error } = await db.from('contas').update({ pago: true, pago_em: new Date().toISOString() }).eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); toast('Conta paga');
+}
+
+function ajustes() {
+  return `<h1>Configurações</h1>
+  <div class="card"><h2>Alterar senha</h2><form onsubmit="novaSenha(event)">
+  <input class="inp" name="s1" type="password" minlength="8" placeholder="Nova senha (mínimo 8 caracteres)" required>
+  <input class="inp" name="s2" type="password" placeholder="Repita a nova senha" required><button class="btn w">Salvar nova senha</button></form></div>
+  <div class="card"><h2>Backup dos dados</h2><small class="blk">Baixa um arquivo com clientes, vendas, pagamentos, parcelas, produtos e contas. Guarde em local seguro.</small>
+  <button class="btn alt w" style="margin-top:8px" onclick="backup()">Baixar backup</button></div>`;
+}
+async function novaSenha(e) {
+  e.preventDefault();
+  const f = e.target;
+  if (f.s1.value != f.s2.value) return toast('As senhas não são iguais');
+  const { error } = await db.auth.updateUser({ password: f.s1.value });
+  if (error) return toast('Erro: ' + error.message);
+  f.reset(); toast('Senha alterada');
+}
+function backup() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ gerado_em: new Date().toISOString(), ...S }, null, 1)], { type: 'application/json' }));
+  a.download = 'backup-rozivaldo-' + HOJE + '.json'; a.click();
+}
+
+let PRE = null, PEDIDO = null;
+const LINK = () => location.origin + location.pathname.replace(/[^/]*$/, '') + 'catalogo.html';
+function copiaLink() { navigator.clipboard.writeText(LINK()).then(() => toast('Link copiado!')); }
+
+function fillRow(row, i) {
+  const sel = row.querySelector('select');
+  if (i.pid && S.pr.some(x => x.id == i.pid)) { sel.value = i.pid; pick(sel); }
+  else { row.querySelector('[name=produto]').value = i.produto; row.querySelector('[name=categoria]').value = i.categoria; }
+  row.querySelector('[name=quantidade]').value = i.qtd;
+  if (i.preco != null) row.querySelector('[name=preco]').value = Number(i.preco).toFixed(2);
+}
+function iniciaVenda() {
+  if (PRE) { PEDIDO = PRE.pedido; PRE.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); }); PRE = null; toast('Pedido carregado. Confira e registre a venda.'); }
+  else { PEDIDO = null; addItem(); }
+  calc();
+}
+
+const NUM = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, onze: 11, doze: 12 };
+const STOP = new Set('venda vendi vender para pra cliente parcelado parcelada em de do da por no na valor cada reais real a vista avista entrada e o as os'.split(' '));
+const nz = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const nm = x => Object.hasOwn(NUM, x) ? NUM[x] : parseFloat(x.replace(',', '.'));
+const stem = x => x.replace(/s$/, '');
+const guessCat = t => /lingerie|calcinha|suti|camisola|body|cinta|espartilho/.test(t) ? 'Lingerie' : /vibrador|gel|sexshop|algema|fantasia|lubrificante|pompoar|plug/.test(t) ? 'Sexshop' : /feminin|vestido|saia|blusa|cropped|short|legging/.test(t) ? 'Feminino' : 'Masculino';
+function interpreta(txt) {
+  let t = ' ' + nz(txt).replace(/r\$\s*/g, '').replace(/(\d+)\s*reais?\s*e\s*(\d{1,2})\s*centavos?/g, '$1,$2') + ' ';
+  const r = { itens: [] }, W = t.split(/[^a-z0-9]+/);
+  const cl = S.c.map(c => ({ c, n: nz(c.nome) })).map(x => ({ ...x, k: t.includes(x.n) ? 2 : W.includes(x.n.split(' ')[0]) ? 1 : 0 })).filter(x => x.k).sort((a, b) => b.k - a.k || b.n.length - a.n.length)[0];
+  if (cl) { r.cid = cl.c.id; t = t.replace(cl.k == 2 ? cl.n : cl.n.split(' ')[0], ' '); }
+  let m = t.match(new RegExp('(\\d+|' + Object.keys(NUM).join('|') + ')\\s*(?:vezes|x|parcelas?)(?![a-z])'));
+  if (m) { r.np = nm(m[1]); t = t.replace(m[0], ' '); }
+  m = t.match(/(?:entrada|pagou|pago|deu)\s*(?:de\s*)?(\d+(?:[.,]\d+)?)/);
+  if (m) { r.pago = nm(m[1]); t = t.replace(m[0], ' '); }
+  if (/\ba vista\b|\bavista\b/.test(t)) r.vista = true;
+  t.split(/,|;|\s+mais\s+|\s+e\s+(?=(?:um|uma|dois|duas|tres|quatro|cinco|\d+)\s)/).forEach(p => {
+    const tk = (p.match(/[a-z]+|\d+(?:[.,]\d+)?/g) || []).filter(x => !STOP.has(x));
+    let qtd = 1;
+    if (tk.length > 1 && (Object.hasOwn(NUM, tk[0]) || /^\d+$/.test(tk[0]))) qtd = nm(tk.shift());
+    const i = tk.map(x => /^\d/.test(x)).lastIndexOf(true);
+    const preco = i >= 0 ? nm(tk.splice(i, 1)[0]) : null, w = tk.filter(x => !/^\d/.test(x));
+    if (!w.length) return;
+    const ws = new Set(w.map(stem));
+    const pr = S.pr.filter(x => { const pw = (nz(x.nome).match(/[a-z]+/g) || []).filter(y => !STOP.has(y)).map(stem); return pw.length && pw.every(y => ws.has(y)); }).sort((a, b) => b.nome.length - a.nome.length)[0];
+    r.itens.push(pr ? { pid: pr.id, produto: pr.nome, categoria: pr.categoria, qtd, preco: preco ?? pr.preco } : { produto: w.join(' ').replace(/^./, c => c.toUpperCase()), categoria: guessCat(w.join(' ')), qtd, preco });
+  });
+  return r;
+}
+function ouvir() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return toast('Este navegador não tem reconhecimento de voz. Use o Chrome ou digite a frase ao lado.');
+  const r = new SR(); r.lang = 'pt-BR';
+  r.onresult = e => aplicaVoz(e.results[0][0].transcript);
+  r.onerror = e => toast('Não consegui ouvir (' + e.error + '). Libere o microfone no navegador.');
+  toast('🎤 Ouvindo… fale a venda'); r.start();
+}
+function aplicaVoz(txt) {
+  if (!txt.trim()) return toast('Fale ou digite a venda primeiro');
+  const r = interpreta(txt), f = $('#view form');
+  $('#frase').value = txt;
+  $('#fb').textContent = 'Entendi: ' + [r.cid ? 'Cliente ' + S.c.find(c => c.id == r.cid).nome : 'cliente não identificado (escolha na lista)', ...r.itens.map(i => `${i.qtd}× ${i.produto} ${i.preco != null ? R(i.preco) : '(sem preço)'}`), r.np ? r.np + ' parcela(s)' : '', r.pago != null ? 'entrada ' + R(r.pago) : '', r.vista ? 'à vista' : ''].filter(Boolean).join(' · ');
+  if (r.cid) f.cliente_id.value = r.cid;
+  if (!r.itens.length) return toast('Não entendi os produtos. Tente: "uma camisa polo de 119,90"');
+  $('#its').innerHTML = ''; r.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); });
+  if (r.np) f.np.value = r.np;
+  const tot = calc();
+  if (r.vista) f.pago.value = tot.toFixed(2); else if (r.pago != null) f.pago.value = r.pago;
+  calc(); toast('Confira os campos e toque em Registrar venda');
+}
+
+function pedidos() {
+  return `<h1>Pedidos online</h1><p class="mut">Pedidos feitos pelos clientes na vitrine. “Virar venda” abre a Nova venda já preenchida.</p>` +
+  (S.pd.map(p => `<div class="card"><div class="row"><b>${esc(p.nome)}</b><b>${R(p.total)}</b></div><small class="blk">${esc(p.telefone)} · ${D(p.criado_em)}</small>
+    ${p.itens.map(i => `<small class="blk">${i.qtd}× ${esc(i.nome)} — ${R(i.preco)}</small>`).join('')}
+    <div class="row"><button class="btn" onclick="virarVenda('${p.id}')">Virar venda</button><a class="lnk" target="_blank" href="https://wa.me/${fone(p.telefone)}">Chamar no WhatsApp</a><button class="lnk red" onclick="del('pedidos','${p.id}')">Descartar</button></div></div>`).join('') || '<p class="mut">Nenhum pedido novo.</p>');
+}
+async function virarVenda(id) {
+  const p = S.pd.find(x => x.id == id), d = (p.telefone || '').replace(/\D/g, '');
+  let c = S.c.find(x => d && (x.telefone || '').replace(/\D/g, '') == d);
+  if (!c) {
+    const r = await db.from('clientes').insert({ nome: p.nome, telefone: p.telefone }).select().single();
+    if (r.error) return toast('Erro: ' + r.error.message);
+    c = r.data; await load();
+  }
+  PRE = { pedido: id, itens: p.itens.map(i => ({ pid: i.id, produto: i.nome, categoria: i.categoria, qtd: i.qtd, preco: (S.pr.find(x => x.id == i.id) || i).preco })) };
+  go('venda', c.id);
+}
+
 async function del(t, id) {
   if (!confirm(t == 'clientes' ? 'Excluir o cliente E todas as compras e pagamentos dele? Não dá para desfazer.' : 'Excluir este registro? Não dá para desfazer.')) return;
   const { error } = await db.from(t).delete().eq('id', id);
