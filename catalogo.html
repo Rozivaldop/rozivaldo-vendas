@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catálogo · Rozivaldo Store</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--pan:#131b29;--line:#222d42;--tx:#e6ebf5;--mut:#8d9bb5;--blue:#3b82f6;--pink:#ec4899}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:90px}
+header{text-align:center;padding:22px 14px 8px}
+header h1{margin:0;font-size:1.4rem;font-weight:800}header small{color:var(--mut);letter-spacing:.06em;font-size:.65rem}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 14px;scrollbar-width:none}
+.chips button{flex:none;background:var(--pan);border:1px solid var(--line);color:var(--tx);border-radius:99px;padding:8px 16px;font:inherit;font-size:.85rem;cursor:pointer}
+.chips button.on{background:var(--blue);border-color:var(--blue);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:6px 14px;max-width:1100px;margin:auto}
+.pc{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:4px}
+.pc img,.pimg{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#1b2740;display:flex;align-items:center;justify-content:center;font-size:2.4rem}
+.pn{font-size:.88rem;font-weight:600;min-height:2.4em;line-height:1.2}.pp{font-size:1rem}small{color:var(--mut)}
+.add{margin-top:4px;background:transparent;border:1.5px solid #cbd5e1;color:var(--tx);border-radius:99px;padding:8px;font:inherit;font-weight:700;font-size:.8rem;cursor:pointer;width:100%}
+.add:hover{background:var(--blue);border-color:var(--blue)}
+.qt{display:flex;align-items:center;justify-content:space-between;margin-top:4px;background:var(--blue);border-radius:99px;padding:3px}
+.qt button{width:30px;height:30px;border:0;border-radius:50%;background:#0003;color:#fff;font-size:1.1rem;cursor:pointer}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#0f1521;border-top:1px solid var(--line);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:600;cursor:pointer}
+.bk{position:fixed;inset:0;background:#000a;display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--bg);border:1px solid var(--line);width:100%;max-width:520px;border-radius:14px 14px 0 0;padding:16px;max-height:90vh;overflow:auto}
+.inp{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#0e1626;color:var(--tx);margin:5px 0}
+.row{display:flex;justify-content:space-between;gap:8px;padding:6px 0}
+.mut{color:var(--mut);text-align:center;padding:30px 14px}
+</style>
+</head>
+<body>
+<header><h1>ROZIVALDO STORE</h1><small>MODA · LINGERIE · SEX SHOP</small></header>
+<div class="chips" id="chips"></div>
+<div class="grid" id="grid"></div>
+<div class="bar" id="bar" hidden><div><small id="bn"></small><b id="bt" style="display:block;font-size:1.1rem"></b></div><button class="btn" onclick="abrir()">Finalizar pedido</button></div>
+<div id="modal"></div>
+<script src="config.js"></script>
+<script>
+// Opcional: número da loja com DDD (ex: "84999998888"). Se preencher, o cliente também é levado ao seu WhatsApp ao enviar.
+const WHATS_LOJA = "";
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const R = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let P = [], cart = {}, cat = 'Todos';
+const sku = p => p.sku || 'RS' + String(p.id).replace(/-/g, '').slice(0, 8).toUpperCase();
+
+async function init() {
+  const { data, error } = await db.from('produtos').select('*').eq('vitrine', true).order('nome');
+  if (error) { $('#grid').innerHTML = '<p class="mut">Não foi possível carregar o catálogo agora.</p>'; return; }
+  P = data || []; desenha();
+}
+function desenha() {
+  const cats = ['Todos', ...new Set(P.map(p => p.categoria))];
+  $('#chips').innerHTML = cats.map(k => `<button class="${k == cat ? 'on' : ''}" onclick="cat='${k}';desenha()">${k}</button>`).join('');
+  const l = P.filter(p => cat == 'Todos' || p.categoria == cat);
+  $('#grid').innerHTML = l.map(p => `<div class="pc">${p.foto ? `<img src="${p.foto}" alt="">` : '<div class="pimg">🛍️</div>'}
+    <b class="pn">${esc(p.nome)}</b><b class="pp">${R(p.preco)}</b><small>SKU: ${esc(sku(p))}</small>
+    ${cart[p.id] ? `<div class="qt"><button onclick="mud('${p.id}',-1)">−</button><b>${cart[p.id]}</b><button onclick="mud('${p.id}',1)">+</button></div>` : `<button class="add" onclick="mud('${p.id}',1)">ADICIONAR +</button>`}</div>`).join('') || '<p class="mut">Nenhum produto disponível no momento.</p>';
+  const n = Object.values(cart).reduce((a, b) => a + b, 0), t = total();
+  $('#bar').hidden = !n; $('#bn').textContent = n + (n == 1 ? ' item' : ' itens'); $('#bt').textContent = R(t);
+}
+const total = () => P.reduce((t, p) => t + (cart[p.id] || 0) * Number(p.preco), 0);
+function mud(id, d) { cart[id] = (cart[id] || 0) + d; if (cart[id] <= 0) delete cart[id]; desenha(); }
+function abrir() {
+  $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet"><h2 style="margin-top:0">Seu pedido</h2>
+  ${P.filter(p => cart[p.id]).map(p => `<div class="row"><span>${cart[p.id]}× ${esc(p.nome)}</span><b>${R(cart[p.id] * p.preco)}</b></div>`).join('')}
+  <div class="row"><b>Total</b><b>${R(total())}</b></div>
+  <form onsubmit="envia(event)"><input class="inp" name="nome" placeholder="Seu nome" required>
+  <input class="inp" name="telefone" type="tel" placeholder="Seu WhatsApp com DDD" required>
+  <button class="btn" style="width:100%;margin-top:6px">Enviar pedido</button></form></div></div>`;
+}
+function fecha() { $('#modal').innerHTML = ''; }
+async function envia(e) {
+  e.preventDefault();
+  const f = e.target, itens = P.filter(p => cart[p.id]).map(p => ({ id: p.id, nome: p.nome, categoria: p.categoria, qtd: cart[p.id], preco: Number(p.preco) }));
+  const pedido = { nome: f.nome.value.trim(), telefone: f.telefone.value.trim(), itens, total: total(), status: 'novo' };
+  const { error } = await db.from('pedidos').insert(pedido);
+  if (error) return alert('Não foi possível enviar o pedido. Tente de novo.');
+  if (WHATS_LOJA) {
+    const d = WHATS_LOJA.replace(/\D/g, ''), txt = `Olá! Fiz um pedido no catálogo:\n` + itens.map(i => `• ${i.qtd}x ${i.nome} — ${R(i.qtd * i.preco)}`).join('\n') + `\n\nTotal: ${R(pedido.total)}\nNome: ${pedido.nome}`;
+    window.open(`https://wa.me/${d.length <= 11 ? '55' + d : d}?text=${encodeURIComponent(txt)}`, '_blank');
+  }
+  cart = {}; desenha();
+  $('#modal').innerHTML = `<div class="bk"><div class="sheet" style="text-align:center"><h2>Pedido enviado! 💜</h2><p class="mut">Recebemos seu pedido e vamos te chamar no WhatsApp para combinar o pagamento e a entrega.</p><button class="btn" onclick="fecha()">Voltar ao catálogo</button></div></div>`;
+}
+init();
+</script>
+</body>
+</html>
