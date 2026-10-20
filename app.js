@@ -324,7 +324,7 @@ function relDados() {
   return { vs: S.v.filter(v => ok(v.data, v.cliente_id)), ps: S.p.filter(p => ok(p.criado_em, p.cliente_id)) };
 }
 function relatorio() {
-  return `<h1>Relatórios</h1>
+  return `<div class="row"><h1>Relatórios</h1><button class="btn" onclick="relPDF()">📄 Relatório PDF / Imprimir</button></div>
   <div class="grid"><label><small>De</small><input class="inp" type="date" value="${F.de}" onchange="F.de=this.value;relRes()"></label>
   <label><small>Até</small><input class="inp" type="date" value="${F.ate}" onchange="F.ate=this.value;relRes()"></label></div>
   <select class="inp" onchange="F.cli=this.value;relRes()"><option value="">Todos os clientes</option>${S.c.map(c => `<option value="${c.id}" ${c.id == F.cli ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
@@ -339,11 +339,95 @@ function relRes(ret) {
   <h2>Quanto vou receber por mês</h2><small>Parcelas por mês de vencimento. Toque no mês para ver quem paga.</small>${previsao()}
   <h2>Produtos mais vendidos</h2>${top.map(([n, q]) => `<div class="card row"><span>${esc(n)}</span><b>${q} un.</b></div>`).join('') || '<p class="mut">Sem vendas neste filtro.</p>'}
   <h2>Por categoria</h2>${cat.map(([k, t]) => `<div class="card row"><span>${k}</span><b>${R(t)}</b></div>`).join('')}
-  <div class="row"><h2>Vendas (${vs.length})</h2><button class="btn alt" onclick="csv()">Baixar planilha</button></div>
+  <h2>Vendas (${vs.length})</h2>
   ${vs.map(v => { const c = S.c.find(x => x.id == v.cliente_id) || {}; return `<div class="card"><div class="row"><b>${D(v.data)}</b><b>${R(v.total)}</b></div><button class="lnk" onclick="go('ficha','${v.cliente_id}')">${esc(c.nome)}</button><small class="blk">${v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', ')}</small></div>`; }).join('') || '<p class="mut">Nenhuma venda neste filtro.</p>'}`;
   if (ret) return h;
   $('#rel').innerHTML = h;
 }
+/* ===== RELATÓRIO EM PDF / IMPRESSÃO ===== */
+function relPDF() {
+  const { vs, ps } = relDados();
+  const cliNome = F.cli ? ((S.c.find(c => c.id == F.cli) || {}).nome || '') : 'Todos os clientes';
+  const per = (F.de ? dt(F.de) : 'início') + ' a ' + (F.ate ? dt(F.ate) : 'hoje');
+  const dia = d => mes(d) + '-' + String(new Date(d).getDate()).padStart(2, '0');
+  const noPer = d => (!F.de || dia(d) >= F.de) && (!F.ate || dia(d) <= F.ate);
+  const pcs = todasParc().filter(x => !F.cli || x.c.id == F.cli);
+  const abertas = pcs.filter(x => x.falta > 0.005), atras = abertas.filter(x => x.st == 'Atrasada');
+  const itens = vs.flatMap(v => v.itens_venda);
+  const cts = F.cli ? [] : S.ct;
+  const pagasPer = cts.filter(x => x.pago && x.pago_em && noPer(x.pago_em));
+  const vendido = sum(vs, v => v.total), recebido = sum(ps, p => p.valor), saidas = sum(pagasPer, x => x.valor);
+  const saldo = recebido - saidas;
+  const top = Object.entries(itens.reduce((o, t) => (o[t.produto] = (o[t.produto] || 0) + t.quantidade, o), {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const nome = id => esc((S.c.find(c => c.id == id) || {}).nome || '—');
+  const tb = (head, rows) => `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td${String(c).startsWith('R$') ? ' class="n"' : ''}>${c}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}" class="vz">Sem registros neste período</td></tr>`}</tbody></table>`;
+  const st = x => `<span class="st ${({ Paga: 'ok', Pago: 'ok', Atrasada: 'bad', Atrasado: 'bad' })[x] || 'wait'}">${x}</span>`;
+  const g = {};
+  pcs.forEach(x => (g[x.vencimento.slice(0, 7)] = g[x.vencimento.slice(0, 7)] || []).push(x));
+  const prev = Object.keys(g).sort().map(k => { const [a, m] = k.split('-'); return [new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }), g[k].length, R(sum(g[k], x => x.valor)), R(sum(g[k], x => x.falta))]; });
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório - Rozivaldo Store</title><style>
+@page{size:A4;margin:12mm}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:Inter,Arial,sans-serif;color:#1c2433;font-size:12px;background:#eef1f6}
+.pg{max-width:900px;margin:0 auto;background:#fff;padding:0 0 24px}
+.bar{max-width:900px;margin:0 auto;padding:12px 0;display:flex;gap:8px;justify-content:flex-end}
+.bar button{background:#3b82f6;color:#fff;border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer}
+.bar button.alt{background:#27344f}
+.top{background:#0f1a2e;color:#fff;padding:20px 26px;display:flex;align-items:center;gap:16px}
+.top h1{margin:0;font-size:20px;letter-spacing:.04em}.top small{color:#9fb0cf;letter-spacing:.08em;font-size:9px}
+.top .meta{margin-left:auto;text-align:right;font-size:11px;line-height:1.6;color:#cbd5e8}
+.sec{padding:0 26px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;border-bottom:2px solid #e3e8f2;padding-bottom:5px;margin:22px 0 8px}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+.kp div{border:1px solid #e3e8f2;border-left:4px solid #3b82f6;border-radius:8px;padding:10px 12px}
+.kp small{display:block;color:#6b7a96;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.kp b{font-size:17px}.kp .g{border-left-color:#16a34a}.kp .g b{color:#15803d}.kp .r{border-left-color:#dc2626}.kp .r b{color:#b91c1c}.kp .y{border-left-color:#d97706}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:#f1f4fa;text-align:left;padding:7px 8px;color:#45536e;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+td{padding:7px 8px;border-bottom:1px solid #eceff5;vertical-align:top}tr:nth-child(even) td{background:#fafbfd}
+td.n{text-align:right;white-space:nowrap}.vz{text-align:center;color:#8a96ad;padding:14px}
+tr{page-break-inside:avoid}
+.st{padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700}.ok{background:#dcfce7;color:#166534}.bad{background:#fee2e2;color:#991b1b}.wait{background:#fef3c7;color:#92400e}
+.foot{margin:26px 26px 0;padding-top:8px;border-top:1px solid #e3e8f2;color:#8a96ad;font-size:10px;text-align:center}
+@media print{body{background:#fff}.bar{display:none}.pg{max-width:none}}
+</style></head><body>
+<div class="bar"><button class="alt" onclick="window.close()">Fechar</button><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div>
+<div class="pg">
+<div class="top"><svg viewBox="0 0 64 64" width="52" height="52"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#cbd5e1" font-family="sans-serif">R</text></svg>
+<div><h1>ROZIVALDO STORE</h1><small>MODA · LINGERIE · SEX SHOP</small></div>
+<div class="meta"><b>RELATÓRIO FINANCEIRO E DE VENDAS</b><br>Período: ${per}<br>Cliente: ${esc(cliNome)}<br>Emitido em ${new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</div></div>
+<div class="sec">
+<div class="kp">
+<div><small>Vendido no período</small><b>${R(vendido)}</b></div>
+<div class="g"><small>Recebido no período</small><b>${R(recebido)}</b></div>
+<div class="y"><small>A receber (parcelas em aberto)</small><b>${R(sum(abertas, x => x.falta))}</b></div>
+<div class="r"><small>Em atraso (${atras.length})</small><b>${R(sum(atras, x => x.falta))}</b></div>
+<div class="r"><small>Contas pagas no período</small><b>${R(saidas)}</b></div>
+<div class="${saldo >= 0 ? 'g' : 'r'}"><small>Saldo (recebido − contas pagas)</small><b>${R(saldo)}</b></div>
+</div>
+<h2>Vendas por categoria</h2>
+${tb(['Categoria', 'Unidades', 'Total'], CATS.map(k => { const l = itens.filter(t => t.categoria == k); return [k, sum(l, t => t.quantidade), R(sum(l, t => t.quantidade * t.preco_unit))]; }))}
+<h2>Produtos mais vendidos</h2>
+${tb(['Produto', 'Unidades'], top.map(([n, q]) => [esc(n), q]))}
+<h2>Previsão de recebimento por mês</h2>
+${tb(['Mês', 'Parcelas', 'Valor total', 'Falta receber'], prev)}
+<h2>Parcelas em atraso</h2>
+${tb(['Cliente', 'Parcela', 'Vencimento', 'Falta receber'], atras.sort((a, b) => a.vencimento < b.vencimento ? -1 : 1).map(x => [esc(x.c.nome), x.numero + 'ª', dt(x.vencimento), R(x.falta)]))}
+<h2>Recebimentos no período</h2>
+${tb(['Data', 'Cliente', 'Forma', 'Valor'], ps.map(p => [new Date(p.criado_em).toLocaleDateString('pt-BR'), nome(p.cliente_id), esc(p.forma || '—'), R(p.valor)]))}
+${F.cli ? '' : `<h2>Contas a pagar</h2>
+${tb(['Descrição', 'Vencimento', 'Valor', 'Situação'], [...cts].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1).map(x => [esc(x.descricao), dt(x.vencimento), R(x.valor), st(x.pago ? 'Pago' : (x.vencimento < HOJE ? 'Atrasado' : 'A vencer'))]))}`}
+<h2>Vendas detalhadas (${vs.length})</h2>
+${tb(['Data', 'Cliente', 'Itens', 'Total', 'Situação'], vs.map(v => [new Date(v.data).toLocaleDateString('pt-BR'), nome(v.cliente_id), v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', '), R(v.total), st(stVenda(v))]))}
+</div>
+<div class="foot">Rozivaldo Store · Relatório gerado automaticamente pelo sistema de gestão</div>
+</div></body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) return toast('Permita pop-ups deste site para abrir o relatório');
+  w.document.write(html); w.document.close();
+}
+
 function csv() {
   const l = [['Data', 'Cliente', 'Produto', 'Categoria', 'Qtd', 'Preço unit.', 'Subtotal']];
   relDados().vs.forEach(v => { const c = S.c.find(x => x.id == v.cliente_id) || {}; v.itens_venda.forEach(t => l.push([new Date(v.data).toLocaleDateString('pt-BR'), c.nome, t.produto, t.categoria, t.quantidade, t.preco_unit, t.quantidade * t.preco_unit])); });
