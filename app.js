@@ -44,6 +44,14 @@ function fecha() { $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+async function excluiPag(id) {
+  const p = S.p.find(x => x.id == id); if (!p) return;
+  const aviso = p.venda_id ? '\n\nObs.: esse valor foi pago na própria venda. O saldo do cliente vai aumentar; se precisar, ajuste as parcelas em Editar venda.' : '';
+  if (!confirm('Excluir o recebimento de ' + R(p.valor) + ' de ' + (S.c.find(c => c.id == p.cliente_id) || {}).nome + '? Ele sai do caixa. Não dá para desfazer.' + aviso)) return;
+  const { error } = await db.from('pagamentos').delete().eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  fecha(); await load(); render(); toast('Recebimento excluído');
+}
 /* ===== RECEBIMENTOS: vínculo com a venda e edição ===== */
 function vendasAbertas(cid) {
   const pa = parc(cid);
@@ -59,7 +67,8 @@ function editaPag(id) {
   <select class="inp" name="forma">${fs.map(f => `<option ${f == p.forma ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select>
   <label><small>Data do recebimento</small><input class="inp" type="date" name="data" value="${dia2(new Date(p.criado_em))}" required></label>
   <label><small>Referente a qual venda?</small><select class="inp" name="ref"><option value="">Automático (parcelas mais antigas)</option>${vs.map(v => `<option value="${v.id}" ${v.id == p.ref_venda_id ? 'selected' : ''}>${rotVenda(v)}</option>`).join('')}</select></label>
-  <button class="btn w">Salvar recebimento</button></form>`);
+  <button class="btn w">Salvar recebimento</button>
+  <button type="button" class="btn alt w red" style="margin-top:8px" onclick="excluiPag('${id}')">Excluir recebimento</button></form>`);
 }
 async function salvaEdPag(e, id) {
   e.preventDefault();
@@ -262,7 +271,7 @@ function ficha() {
     ${(v.itens_venda || []).map(t => `<small class="blk">${t.quantidade}× ${esc(t.produto)} (${t.categoria}) — ${R(t.preco_unit)}</small>`).join('')}
     <div class="row">${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}<button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar venda</button><button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk red" onclick="excluiVenda('${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
   <h2>Pagamentos recebidos</h2>
-  ${i.ps.map(p => `<div class="card row"><span>${D(p.criado_em)}<small class="blk">${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b><button class="lnk" onclick="editaPag('${p.id}')">Editar</button><button class="lnk" onclick="del('pagamentos','${p.id}')">Excluir</button></div>`).join('') || '<p class="mut">Nenhum pagamento ainda.</p>'}`;
+  ${i.ps.map(p => `<div class="card row"><span>${D(p.criado_em)}<small class="blk">${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b><button class="lnk" onclick="editaPag('${p.id}')">Editar</button><button class="lnk red" onclick="excluiPag('${p.id}')">Excluir</button></div>`).join('') || '<p class="mut">Nenhum pagamento ainda.</p>'}`;
 }
 
 function formPag(id) {
@@ -608,7 +617,7 @@ function recRes(r) {
   const l = S.p.filter(p => mes(p.criado_em) == M);
   const h = `<div class="card"><small>Total recebido no mês</small><b class="blk grn" style="font-size:1.6rem">${R(sum(l, p => p.valor))}</b>
     <small class="blk">${FORMAS.map(f => f + ': ' + R(sum(l.filter(p => p.forma == f), p => p.valor))).join(' · ')}</small></div>` +
-    (l.map(p => `<div class="card row"><span><b>${cn(p.cliente_id)}</b><small class="blk">${D(p.criado_em)} · ${esc(p.forma)}</small></span><span><b class="grn">${R(p.valor)}</b> <button class="lnk" onclick="editaPag('${p.id}')">Editar</button></span></div>`).join('') || '<p class="mut">Nenhum recebimento neste mês.</p>');
+    (l.map(p => `<div class="card row"><span><b>${cn(p.cliente_id)}</b><small class="blk">${D(p.criado_em)} · ${esc(p.forma)}</small></span><span><b class="grn">${R(p.valor)}</b> <button class="lnk" onclick="editaPag('${p.id}')">Editar</button><button class="lnk red" onclick="excluiPag('${p.id}')">Excluir</button></span></div>`).join('') || '<p class="mut">Nenhum recebimento neste mês.</p>');
   if (r) return h;
   $('#rec').innerHTML = h;
 }
