@@ -44,6 +44,15 @@ function fecha() { $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+async function excluiVenda(id) {
+  const v = S.v.find(x => x.id == id); if (!v) return;
+  if (!confirm('Excluir esta venda de ' + R(v.total) + '? Os itens, as parcelas e os pagamentos dela também serão apagados. Não dá para desfazer.')) return;
+  const { error } = await db.from('vendas').delete().eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  EDIT = null; await load();
+  if (cur == 'venda') go('ficha', v.cliente_id); else render();
+  toast('Venda excluída');
+}
 let EDIT = null, PKEY = '', PDATES = [];
 const planoForm = (f, resto, n) => plano(resto, n, f.venc.value).map((x, k) => ({ ...x, vencimento: PKEY == f.venc.value + '|' + n && PDATES[k] ? PDATES[k] : x.vencimento }));
 function carregaEdicao() {
@@ -222,7 +231,7 @@ function ficha() {
   <h2>Compras</h2>
   ${i.vs.map(v => `<div class="card"><div class="row"><b>${D(v.data)}</b><b>${R(v.total)}</b></div>
     ${(v.itens_venda || []).map(t => `<small class="blk">${t.quantidade}× ${esc(t.produto)} (${t.categoria}) — ${R(t.preco_unit)}</small>`).join('')}
-    <div class="row">${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}<button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar venda</button><button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk" onclick="del('vendas','${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
+    <div class="row">${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}<button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar venda</button><button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk red" onclick="excluiVenda('${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
   <h2>Pagamentos recebidos</h2>
   ${i.ps.map(p => `<div class="card row"><span>${D(p.criado_em)}<small class="blk">${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b><button class="lnk" onclick="del('pagamentos','${p.id}')">Excluir</button></div>`).join('') || '<p class="mut">Nenhum pagamento ainda.</p>'}`;
 }
@@ -260,7 +269,7 @@ function venda() {
   <div class="card" id="prev"></div>
   <label class="card row"><span>🚚 Entrega pendente</span><input type="checkbox" name="pend"></label>
   <button class="btn w">${EDIT ? 'Salvar alterações' : 'Registrar venda'}</button>
-  ${EDIT ? `<button type="button" class="btn alt w" style="margin-top:8px" onclick="go('ficha','${curId}')">Cancelar</button>` : ''}</form>`;
+  ${EDIT ? `<button type="button" class="btn alt w" style="margin-top:8px" onclick="go('ficha','${curId}')">Cancelar</button><button type="button" class="btn alt w red" style="margin-top:8px" onclick="excluiVenda('${EDIT}')">Excluir esta venda</button>` : ''}</form>`;
 }
 function addItem() {
   const d = document.createElement('div');
@@ -556,7 +565,7 @@ function histRes(r) {
   const l = S.v.filter(v => (S.c.find(c => c.id == v.cliente_id) || {}).nome?.toLowerCase().includes(H.q.toLowerCase()) && (!H.st || stVenda(v) == H.st));
   const h = `<small>${l.length} vendas · ${R(sum(l, v => v.total))}</small>` + (l.map(v => `<div class="card"><div class="row"><b>${cn(v.cliente_id)}</b><span>${R(v.total)} ${tag(stVenda(v))} ${v.entregue === false ? '<em class="tag wait">Entrega pendente</em>' : ''}</span></div>
     <small class="blk">${D(v.data)} · ${v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', ')}</small>
-    <div class="row"><button class="lnk" onclick="go('ficha','${v.cliente_id}')">Abrir cliente</button><button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar</button><button class="lnk" onclick="zapVenda('${v.id}')">WhatsApp</button>${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}</div></div>`).join('') || '<p class="mut">Nenhuma venda encontrada.</p>');
+    <div class="row"><button class="lnk" onclick="go('ficha','${v.cliente_id}')">Abrir cliente</button><button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar</button><button class="lnk" onclick="zapVenda('${v.id}')">WhatsApp</button><button class="lnk red" onclick="excluiVenda('${v.id}')">Excluir</button>${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}</div></div>`).join('') || '<p class="mut">Nenhuma venda encontrada.</p>');
   if (r) return h;
   $('#hist').innerHTML = h;
 }
