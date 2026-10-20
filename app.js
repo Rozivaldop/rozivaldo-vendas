@@ -30,7 +30,7 @@ function info(id) {
   const t = sum(vs, v => v.total), p = sum(ps, x => x.valor);
   return { vs, ps, t, p, s: t - p };
 }
-function go(v, id) { $('#side').classList.remove('open'); cur = v; curId = id || null; render(); window.scrollTo(0, 0); }
+function go(v, id, ed) { $('#side').classList.remove('open'); cur = v; curId = id || null; EDIT = ed || null; render(); window.scrollTo(0, 0); }
 function render() {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav == cur || (cur == 'ficha' && b.dataset.nav == 'clientes')));
   $('#view').innerHTML = { inicio, vitrine, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
@@ -44,6 +44,54 @@ function fecha() { $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+let EDIT = null, PKEY = '', PDATES = [];
+const planoForm = (f, resto, n) => plano(resto, n, f.venc.value).map((x, k) => ({ ...x, vencimento: PKEY == f.venc.value + '|' + n && PDATES[k] ? PDATES[k] : x.vencimento }));
+function carregaEdicao() {
+  const v = S.v.find(x => x.id == EDIT);
+  if (!v) { EDIT = null; return go('inicio'); }
+  const f = $('#view form');
+  (v.itens_venda || []).forEach(t => { addItem(); fillRow($('#its').lastElementChild, { produto: t.produto, categoria: t.categoria, qtd: t.quantidade, preco: t.preco_unit }); });
+  const pgs = S.p.filter(p => p.venda_id == v.id), pa = S.pa.filter(x => x.venda_id == v.id).sort((a, b) => a.numero - b.numero);
+  f.pago.value = pgs.length ? sum(pgs, p => p.valor).toFixed(2) : '';
+  if (pgs[0] && pgs[0].forma) f.forma.value = pgs[0].forma;
+  f.pend.checked = v.entregue === false;
+  if (pa.length) { f.np.value = pa.length; f.venc.value = pa[0].vencimento; PKEY = pa[0].vencimento + '|' + pa.length; PDATES = pa.map(x => x.vencimento); }
+  calc();
+}
+async function salvaEdicao(f, itens, total, pago) {
+  const id = EDIT, v = S.v.find(x => x.id == id), cid = v.cliente_id, antigos = v.itens_venda || [];
+  let r = await db.from('vendas').update({ total, entregue: !f.pend.checked }).eq('id', id);
+  if (r.error) return toast('Erro: ' + r.error.message);
+  r = await db.from('itens_venda').delete().eq('venda_id', id);
+  if (r.error) return toast('Erro: ' + r.error.message);
+  r = await db.from('itens_venda').insert(itens.map(x => ({ ...x, venda_id: id })));
+  if (r.error) { await db.from('itens_venda').insert(antigos); return toast('Erro: ' + r.error.message); }
+  const pgs = S.p.filter(p => p.venda_id == id);
+  if (Math.abs(sum(pgs, p => p.valor) - pago) > 0.005) {
+    await db.from('pagamentos').delete().eq('venda_id', id);
+    if (pago > 0) await db.from('pagamentos').insert({ cliente_id: cid, venda_id: id, valor: pago, forma: f.forma.value, ...(pgs[0] ? { criado_em: pgs[0].criado_em } : {}) });
+  }
+  await db.from('parcelas').delete().eq('venda_id', id);
+  const resto = total - pago;
+  if (resto > 0.005) {
+    const n = Math.max(1, Math.min(24, +f.np.value || 1));
+    r = await db.from('parcelas').insert(planoForm(f, resto, n).map(x => ({ ...x, venda_id: id, cliente_id: cid })));
+    if (r.error) toast('Erro nas parcelas: ' + r.error.message);
+  }
+  EDIT = null; await load(); go('ficha', cid); toast('Venda atualizada');
+}
+function editaParc(id) {
+  const x = S.pa.find(p => p.id == id); if (!x) return;
+  modal(`<h2>Alterar vencimento</h2><p class="mut">${x.numero}ª parcela · ${R(x.valor)}<br>Vencimento atual: ${dt(x.vencimento)}</p>
+  <form onsubmit="salvaParc(event,'${id}')"><input class="inp" type="date" name="d" value="${x.vencimento}" required><button class="btn w">Salvar nova data</button></form>`);
+}
+async function salvaParc(e, id) {
+  e.preventDefault();
+  const { error } = await db.from('parcelas').update({ vencimento: e.target.d.value }).eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  fecha(); await load(); render(); toast('Vencimento alterado');
+}
+
 const skuDe = p => p.sku || 'RS' + String(p.id).replace(/-/g, '').slice(0, 8).toUpperCase();
 const skuNovo = cat => String(cat || 'RS').slice(0, 2).toUpperCase() + String(Date.now()).slice(-8);
 const MICBAR = `<svg viewBox="0 0 70 40" fill="none" stroke-width="2.6" stroke-linecap="round"><g stroke="#a855f7"><path d="M4 16v8M10 11v18M16 15v10"/></g><g stroke="#ec4899"><rect x="29" y="5" width="12" height="20" rx="6"/><path d="M24 20a11 11 0 0 0 22 0M35 31v5"/></g><g stroke="#a855f7"><path d="M54 15v10M60 11v18M66 16v8"/></g></svg>`;
@@ -170,11 +218,11 @@ function ficha() {
   </div>
   <div class="row" style="margin-top:12px"><button class="btn" onclick="formPag('${c.id}')">Receber pagamento</button><button class="btn alt" onclick="go('venda','${c.id}')">Nova venda</button>
   ${dev && c.telefone ? `<a class="btn alt" target="_blank" href="${zapLink(c, `Olá, ${c.nome}! Seu saldo em aberto na Rozivaldo Vendas é de ${R(i.s)}. Qualquer dúvida, é só chamar!`)}">Cobrar no WhatsApp</a>` : ''}</div>
-  <h2>Parcelas</h2>${parc(c.id).map(x => `<div class="card row"><b>${x.numero}ª · vence ${dt(x.vencimento)}</b><span>${R(x.valor)} ${tag(x.st)}</span></div>`).join('') || '<p class="mut">Sem parcelas.</p>'}
+  <h2>Parcelas</h2>${parc(c.id).map(x => `<div class="card row"><b>${x.numero}ª · vence ${dt(x.vencimento)}</b><span>${R(x.valor)} ${tag(x.st)} <button class="lnk" onclick="editaParc('${x.id}')">Mudar data</button></span></div>`).join('') || '<p class="mut">Sem parcelas.</p>'}
   <h2>Compras</h2>
   ${i.vs.map(v => `<div class="card"><div class="row"><b>${D(v.data)}</b><b>${R(v.total)}</b></div>
     ${(v.itens_venda || []).map(t => `<small class="blk">${t.quantidade}× ${esc(t.produto)} (${t.categoria}) — ${R(t.preco_unit)}</small>`).join('')}
-    <div class="row">${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}<button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk" onclick="del('vendas','${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
+    <div class="row">${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}<button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar venda</button><button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk" onclick="del('vendas','${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
   <h2>Pagamentos recebidos</h2>
   ${i.ps.map(p => `<div class="card row"><span>${D(p.criado_em)}<small class="blk">${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b><button class="lnk" onclick="del('pagamentos','${p.id}')">Excluir</button></div>`).join('') || '<p class="mut">Nenhum pagamento ainda.</p>'}`;
 }
@@ -196,22 +244,23 @@ async function salvaPag(e, id) {
 }
 
 function venda() {
-  return `<h1>Nova venda</h1>
-  <div class="card"><small>🎤 Lançar por voz ou texto</small>
+  return `<h1>${EDIT ? 'Editar venda' : 'Nova venda'}</h1>
+  ${EDIT ? '' : `<div class="card"><small>🎤 Lançar por voz ou texto</small>
   <div class="row" style="flex-wrap:nowrap"><input class="inp" id="frase" placeholder="Ex: venda para Maria, uma camisa polo de 119,90 em 3 vezes" onkeydown="if(event.key=='Enter'){event.preventDefault();aplicaVoz(this.value)}">
   <button type="button" class="btn" onclick="ouvir()">🎤</button><button type="button" class="btn alt" onclick="aplicaVoz($('#frase').value)">Preencher</button></div>
-  <small id="fb" class="blk"></small></div>
+  <small id="fb" class="blk"></small></div>`}
   <form onsubmit="salvaVenda(event)">
-  <select class="inp" name="cliente_id" required><option value="">Escolha o cliente</option>${S.c.map(c => `<option value="${c.id}" ${c.id == curId ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+  <select class="inp" name="cliente_id" required ${EDIT ? 'disabled' : ''}><option value="">Escolha o cliente</option>${S.c.map(c => `<option value="${c.id}" ${c.id == curId ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
   <div id="its"></div>
   <button type="button" class="btn alt" onclick="addItem()">+ Adicionar item</button>
   <div class="card row"><span>Total da venda</span><b id="tot">R$ 0,00</b></div>
   <input class="inp" name="pago" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Valor pago agora (deixe vazio se for fiado)" oninput="calc()">
   <select class="inp" name="forma">${opts(FORMAS)}</select>
-  <div class="grid"><label><small>Nº de parcelas</small><input class="inp" name="np" type="number" min="1" max="24" value="1" oninput="calc()"></label><label><small>1º vencimento</small><input class="inp" name="venc" type="date" value="${proxDia5()}" oninput="calc()" required></label></div>
+  <div class="grid"><label><small>Nº de parcelas</small><input class="inp" name="np" type="number" min="1" max="24" value="1" oninput="calc()"></label><label><small>1º vencimento (escolha o dia)</small><input class="inp" name="venc" type="date" value="${proxDia5()}" oninput="calc()" required></label></div>
   <div class="card" id="prev"></div>
   <label class="card row"><span>🚚 Entrega pendente</span><input type="checkbox" name="pend"></label>
-  <button class="btn w">Registrar venda</button></form>`;
+  <button class="btn w">${EDIT ? 'Salvar alterações' : 'Registrar venda'}</button>
+  ${EDIT ? `<button type="button" class="btn alt w" style="margin-top:8px" onclick="go('ficha','${curId}')">Cancelar</button>` : ''}</form>`;
 }
 function addItem() {
   const d = document.createElement('div');
@@ -235,7 +284,11 @@ function calc() {
   const f = $('#view form');
   if (f && f.pago && $('#prev')) {
     const resto = t - (+f.pago.value || 0), n = Math.max(1, Math.min(24, +f.np.value || 1));
-    $('#prev').innerHTML = resto > 0.005 && f.venc.value ? `<b>${n}× de ${R(resto / n)}</b><small class="blk">Vencimentos: ${plano(resto, n, f.venc.value).map(x => dt(x.vencimento)).join(' · ')}</small>` : t > 0 ? '<small>Pago à vista, sem parcelas.</small>' : '';
+    if (resto > 0.005 && f.venc.value) {
+      const pl = plano(resto, n, f.venc.value), key = f.venc.value + '|' + n;
+      if (key != PKEY) { PKEY = key; PDATES = pl.map(x => x.vencimento); }
+      $('#prev').innerHTML = `<b>${n}× de ${R(resto / n)}</b><small class="blk">Vencimento de cada parcela (toque na data para mudar o dia):</small>` + pl.map((x, k) => `<div class="row" style="margin-top:6px"><span>${x.numero}ª · ${R(x.valor)}</span><input class="inp" style="width:auto;margin:0" type="date" value="${PDATES[k]}" onchange="PDATES[${k}]=this.value"></div>`).join('');
+    } else $('#prev').innerHTML = t > 0 ? '<small>Pago à vista, sem parcelas.</small>' : '';
   }
   return t;
 }
@@ -246,6 +299,7 @@ async function salvaVenda(e) {
   if (!itens.length) return toast('Adicione ao menos um item');
   const total = calc(), pago = +f.pago.value || 0, cid = f.cliente_id.value;
   if (pago > total) return toast('O valor pago é maior que o total da venda');
+  if (EDIT) return salvaEdicao(f, itens, total, pago);
   const { data: v, error } = await db.from('vendas').insert({ cliente_id: cid, total, entregue: !f.pend.checked }).select().single();
   if (error) return toast('Erro: ' + error.message);
   const r1 = await db.from('itens_venda').insert(itens.map(x => ({ ...x, venda_id: v.id })));
@@ -254,7 +308,7 @@ async function salvaVenda(e) {
   const resto = total - pago;
   if (resto > 0.005) {
     const n = Math.max(1, Math.min(24, +f.np.value || 1));
-    await db.from('parcelas').insert(plano(resto, n, f.venc.value).map(x => ({ ...x, venda_id: v.id, cliente_id: cid })));
+    await db.from('parcelas').insert(planoForm(f, resto, n).map(x => ({ ...x, venda_id: v.id, cliente_id: cid })));
   }
   if (PEDIDO) { await db.from('pedidos').update({ status: 'convertido' }).eq('id', PEDIDO); PEDIDO = null; }
   await load(); go('ficha', cid); zapVenda(v.id);
@@ -468,7 +522,7 @@ function stVenda(v) {
 }
 function parcRow(x) {
   const msg = `Olá, ${x.c.nome}! Passando para lembrar da parcela ${x.numero} de ${R(x.falta)}, ${x.st == 'Atrasada' ? 'vencida em' : 'com vencimento em'} ${dt(x.vencimento)}, da Rozivaldo Store. Obrigado!`;
-  return `<div class="card row"><span><button class="lnk" onclick="go('ficha','${x.c.id}')">${esc(x.c.nome)}</button><small class="blk">${x.numero}ª parcela · vence ${dt(x.vencimento)}</small></span><span>${R(x.falta)} ${tag(x.st)} ${x.c.telefone ? `<a class="lnk" target="_blank" href="${zapLink(x.c, msg)}">Cobrar</a>` : ''}</span></div>`;
+  return `<div class="card row"><span><button class="lnk" onclick="go('ficha','${x.c.id}')">${esc(x.c.nome)}</button><small class="blk">${x.numero}ª parcela · vence ${dt(x.vencimento)}</small></span><span>${R(x.falta)} ${tag(x.st)} <button class="lnk" onclick="editaParc('${x.id}')">Mudar data</button> ${x.c.telefone ? `<a class="lnk" target="_blank" href="${zapLink(x.c, msg)}">Cobrar</a>` : ''}</span></div>`;
 }
 function financeiro() {
   const t = todasParc().filter(x => x.st != 'Paga').sort((a, b) => a.vencimento < b.vencimento ? -1 : 1);
@@ -502,7 +556,7 @@ function histRes(r) {
   const l = S.v.filter(v => (S.c.find(c => c.id == v.cliente_id) || {}).nome?.toLowerCase().includes(H.q.toLowerCase()) && (!H.st || stVenda(v) == H.st));
   const h = `<small>${l.length} vendas · ${R(sum(l, v => v.total))}</small>` + (l.map(v => `<div class="card"><div class="row"><b>${cn(v.cliente_id)}</b><span>${R(v.total)} ${tag(stVenda(v))} ${v.entregue === false ? '<em class="tag wait">Entrega pendente</em>' : ''}</span></div>
     <small class="blk">${D(v.data)} · ${v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', ')}</small>
-    <div class="row"><button class="lnk" onclick="go('ficha','${v.cliente_id}')">Abrir cliente</button><button class="lnk" onclick="zapVenda('${v.id}')">WhatsApp</button>${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}</div></div>`).join('') || '<p class="mut">Nenhuma venda encontrada.</p>');
+    <div class="row"><button class="lnk" onclick="go('ficha','${v.cliente_id}')">Abrir cliente</button><button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar</button><button class="lnk" onclick="zapVenda('${v.id}')">WhatsApp</button>${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}</div></div>`).join('') || '<p class="mut">Nenhuma venda encontrada.</p>');
   if (r) return h;
   $('#hist').innerHTML = h;
 }
@@ -582,6 +636,8 @@ function fillRow(row, i) {
   if (i.preco != null) row.querySelector('[name=preco]').value = Number(i.preco).toFixed(2);
 }
 function iniciaVenda() {
+  PKEY = ''; PDATES = [];
+  if (EDIT) { AUTO = null; return carregaEdicao(); }
   if (PRE) { PEDIDO = PRE.pedido; PRE.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); }); PRE = null; toast(PEDIDO ? 'Pedido carregado. Confira e registre a venda.' : 'Produto adicionado. Escolha o cliente e registre a venda.'); }
   else { PEDIDO = null; addItem(); }
   calc();
