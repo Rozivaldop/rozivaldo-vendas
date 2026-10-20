@@ -33,7 +33,7 @@ function info(id) {
 function go(v, id, ed) { $('#side').classList.remove('open'); cur = v; curId = id || null; EDIT = ed || null; render(); window.scrollTo(0, 0); }
 function render() {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav == cur || (cur == 'ficha' && b.dataset.nav == 'clientes')));
-  $('#view').innerHTML = { inicio, vitrine, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
+  $('#view').innerHTML = { inicio, vitrine, cobranca, fluxo, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
   if (cur == 'inicio') vitInit();
   if (cur == 'vitrine') vtxt();
   if (cur == 'venda') iniciaVenda();
@@ -44,6 +44,140 @@ function fecha() { $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== LUCRO REAL ===== */
+const custoDe = t => {
+  if (t.custo_unit != null) return Number(t.custo_unit);
+  const p = S.pr.find(x => nz(x.nome) == nz(t.produto));
+  return p && p.custo != null ? Number(p.custo) : null;
+};
+const lucroItem = t => { const c = custoDe(t); return c == null ? null : t.quantidade * (Number(t.preco_unit) - c); };
+function lucroDe(itens) {
+  let lucro = 0, base = 0, total = 0;
+  (itens || []).forEach(t => { const v = t.quantidade * t.preco_unit; total += v; const x = lucroItem(t); if (x != null) { lucro += x; base += v; } });
+  return { lucro, base, total, custo: base - lucro, cobertura: total ? base / total : 1, margem: base ? lucro / base : 0 };
+}
+const pct = v => (v * 100).toFixed(0).replace('.', ',') + '%';
+function lucroPorCat(its) { return CATS.map(k => [k, lucroDe(its.filter(t => t.categoria == k))]).filter(([, l]) => l.total > 0).sort((a, b) => b[1].lucro - a[1].lucro); }
+function lucroPorProd(its, n) {
+  const o = {};
+  its.forEach(t => { const x = lucroItem(t); if (x != null) { o[t.produto] = o[t.produto] || { l: 0, q: 0 }; o[t.produto].l += x; o[t.produto].q += t.quantidade; } });
+  return Object.entries(o).sort((a, b) => b[1].l - a[1].l).slice(0, n);
+}
+const avisoCusto = L => L.total > 0 && L.cobertura < 0.999 ? `<small class="blk">Lucro calculado sobre ${pct(L.cobertura)} das vendas (as demais não têm custo). <button class="lnk" onclick="go('catalogo')">Informar custo dos produtos</button></small>` : '';
+function lucroPainel(its) {
+  const L = lucroDe(its), pc = lucroPorCat(its), tp = lucroPorProd(its, 5);
+  return `<div class="two"><div class="card"><h2>Lucro por categoria</h2><small>Todas as vendas · margem = lucro ÷ vendido</small>
+  ${pc.map(([k, l]) => `<div class="row" style="margin-top:8px"><span>${IC[k]} ${k}<small class="blk">margem ${pct(l.margem)}</small></span><b class="${l.lucro >= 0 ? 'grn' : 'red'}">${l.base ? R(l.lucro) : '—'}</b></div>`).join('') || '<small class="blk">Sem vendas ainda.</small>'}
+  ${avisoCusto(L)}</div>
+  <div class="card"><h2>Produtos mais lucrativos</h2>${tp.map(([n, o]) => `<div class="row"><small>${esc(n)}</small><b class="grn">${R(o.l)}</b></div>`).join('') || '<small>Informe o preço de custo nos produtos para ver o lucro.</small>'}</div></div>`;
+}
+function lucroRel(vs) {
+  const its = vs.flatMap(v => v.itens_venda || []), L = lucroDe(its), pc = lucroPorCat(its), tp = lucroPorProd(its, 8);
+  const cts = F.cli ? [] : S.ct.filter(x => (!F.de || x.vencimento >= F.de) && (!F.ate || x.vencimento <= F.ate));
+  const cc = sum(cts.filter(x => x.tipo == 'cartao'), x => x.valor), cv = sum(cts.filter(x => x.tipo != 'cartao'), x => x.valor);
+  return `<div class="grid"><div class="card"><small>Lucro bruto no período</small><b class="blk ${L.lucro >= 0 ? 'grn' : 'red'}">${R(L.lucro)}</b></div>
+  <div class="card"><small>Margem de lucro</small><b class="blk">${pct(L.margem)}</b></div></div>${avisoCusto(L)}
+  <h2>Lucro por categoria</h2>${pc.map(([k, l]) => `<div class="card row"><span>${IC[k]} ${k}<small class="blk">vendido ${R(l.total)} · margem ${pct(l.margem)}</small></span><b class="${l.lucro >= 0 ? 'grn' : 'red'}">${l.base ? R(l.lucro) : '—'}</b></div>`).join('') || '<p class="mut">Sem vendas neste filtro.</p>'}
+  <h2>Produtos mais lucrativos</h2>${tp.map(([n, o]) => `<div class="card row"><span>${esc(n)}<small class="blk">${o.q} un.</small></span><b class="grn">${R(o.l)}</b></div>`).join('') || '<p class="mut">Informe o custo dos produtos para ver o lucro.</p>'}
+  ${F.cli ? '' : `<h2>Lucro × contas do período</h2><div class="card"><div class="row"><span>Contas a pagar no período<small class="blk">Cartão ${R(cc)} · À vista ${R(cv)}</small></span><b class="red">${R(cc + cv)}</b></div>
+  <div class="row" style="margin-top:8px"><span>Lucro bruto − contas</span><b class="${L.lucro - cc - cv >= 0 ? 'grn' : 'red'}">${R(L.lucro - cc - cv)}</b></div>
+  <small class="blk">As contas incluem compras de estoque, que já estão no custo dos produtos vendidos. Use como visão de fôlego do caixa.</small></div>`}`;
+}
+const lucroTag = v => { const l = lucroDe(v.itens_venda || []); return l.base ? `<small class="blk ${l.lucro >= 0 ? 'grn' : 'red'}">Lucro: ${R(l.lucro)}</small>` : ''; };
+/* ===== FLUXO DE CAIXA PROJETADO ===== */
+let FX = { n: 6 };
+const kf = v => Math.abs(v) >= 1000 ? (v / 1000).toFixed(1).replace('.', ',') + 'k' : String(Math.round(v));
+const caixaLer = () => { try { return +localStorage.getItem('rs_caixa') || 0; } catch (e) { return 0; } };
+function caixaGrava(v) { try { localStorage.setItem('rs_caixa', String(+v || 0)); } catch (e) {} render(); }
+function fluxoDados(n) {
+  const b = new Date(), meses = [...Array(n)].map((_, i) => { const d = new Date(b.getFullYear(), b.getMonth() + i, 1); return { k: mes(d), d, ent: 0, sai: 0, atr: 0 }; });
+  const cur = meses[0].k, idx = k => k < cur ? 0 : meses.findIndex(m => m.k == k);
+  todasParc().filter(x => x.falta > 0.005).forEach(x => { const k = x.vencimento.slice(0, 7), i = idx(k); if (i >= 0) { meses[i].ent += x.falta; if (k < cur) meses[i].atr += x.falta; } });
+  S.ct.filter(x => !x.pago).forEach(x => { const k = x.vencimento.slice(0, 7), i = idx(k); if (i >= 0) { meses[i].sai += Number(x.valor); if (k < cur) meses[i].atrs = (meses[i].atrs || 0) + Number(x.valor); } });
+  const caixa0 = caixaLer(); let ac = caixa0;
+  meses.forEach(m => { m.saldo = m.ent - m.sai; ac += m.saldo; m.ac = ac; });
+  return { meses, caixa0 };
+}
+const mesLong = d => d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+function fluxoSvg(meses) {
+  const W = 640, H = 250, pl = 8, pt = 24, pb = 28, sl = (W - pl * 2) / meses.length;
+  const hi = Math.max(1, ...meses.flatMap(m => [m.ent, m.sai, m.ac])), lo = Math.min(0, ...meses.map(m => m.ac));
+  const y = v => pt + (hi - v) / (hi - lo) * (H - pt - pb), z = y(0);
+  const bar = (x, v, c) => v > 0.005 ? `<rect x="${x.toFixed(1)}" y="${y(v).toFixed(1)}" width="${(sl * 0.28).toFixed(1)}" height="${(z - y(v)).toFixed(1)}" rx="3" fill="${c}"/><text x="${(x + sl * 0.14).toFixed(1)}" y="${(y(v) - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="#8d9bb5">${kf(v)}</text>` : '';
+  const pts = meses.map((m, i) => `${(pl + i * sl + sl / 2).toFixed(1)},${y(m.ac).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Fluxo de caixa projetado">
+  <line x1="${pl}" x2="${W - pl}" y1="${z.toFixed(1)}" y2="${z.toFixed(1)}" stroke="#334155" stroke-width="1"/>
+  ${meses.map((m, i) => { const x0 = pl + i * sl; return bar(x0 + sl * 0.17, m.ent, '#22c55e') + bar(x0 + sl * 0.55, m.sai, '#ef4444') + `<text x="${(x0 + sl / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#8d9bb5">${m.d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</text>`; }).join('')}
+  <polyline points="${pts}" fill="none" stroke="#eab308" stroke-width="2.2" stroke-linejoin="round"/>
+  ${meses.map((m, i) => `<circle cx="${(pl + i * sl + sl / 2).toFixed(1)}" cy="${y(m.ac).toFixed(1)}" r="3.4" fill="${m.ac < -0.005 ? '#ef4444' : '#eab308'}"/>`).join('')}</svg>`;
+}
+function fluxo() {
+  const { meses, caixa0 } = fluxoDados(FX.n), neg = meses.find(m => m.ac < -0.005);
+  return `<div class="row"><h1>Fluxo de caixa</h1><span>${[3, 6, 12].map(n => `<button class="btn ${FX.n == n ? '' : 'alt'}" onclick="FX.n=${n};render()">${n} meses</button>`).join(' ')}</span></div>
+  ${neg ? `<div class="card" style="border-color:#7f1d1d;background:#1d1417"><b class="red">⚠️ Atenção: em ${mesLong(neg.d)} o caixa projetado fica negativo (${R(neg.ac)}).</b><small class="blk">Cobrar as parcelas atrasadas ou combinar prazo nas contas ajuda a fechar esse buraco.</small><button class="btn" style="margin-top:8px" onclick="go('cobranca')">Cobrar atrasados</button></div>`
+    : `<div class="card" style="border-color:#14532d"><b class="grn">✅ Sem aperto previsto nos próximos ${FX.n} meses.</b></div>`}
+  <div class="card"><div class="row"><small><span style="color:#22c55e">■</span> A receber &nbsp;<span style="color:#ef4444">■</span> A pagar &nbsp;<span style="color:#eab308">●</span> Sobra acumulada</small></div>${fluxoSvg(meses)}</div>
+  <label><small>Saldo em caixa hoje (opcional, fica salvo neste aparelho)</small><input class="inp" type="number" step="0.01" inputmode="decimal" value="${caixa0 || ''}" placeholder="0,00" onchange="caixaGrava(this.value)"></label>
+  ${meses.map(m => `<div class="card"><div class="row"><b style="text-transform:capitalize">${mesLong(m.d)}</b>${m.ac < -0.005 ? '<em class="tag bad">Vai faltar</em>' : m.saldo < -0.005 ? '<em class="tag wait">Mês apertado</em>' : '<em class="tag ok">Tranquilo</em>'}</div>
+  <div class="fxg"><div><small>A receber</small><b class="blk grn">${R(m.ent)}</b></div><div><small>A pagar</small><b class="blk red">${R(m.sai)}</b></div>
+  <div><small>Saldo do mês</small><b class="blk ${m.saldo >= 0 ? 'grn' : 'red'}">${R(m.saldo)}</b></div><div><small>Acumulado</small><b class="blk ${m.ac >= 0 ? '' : 'red'}">${R(m.ac)}</b></div></div>
+  ${m.atr > 0.005 ? `<small class="blk">Inclui ${R(m.atr)} de parcelas atrasadas a receber.</small>` : ''}${m.atrs ? `<small class="blk">Inclui ${R(m.atrs)} de contas atrasadas a pagar.</small>` : ''}</div>`).join('')}
+  <small class="blk">A receber considera só as parcelas já cadastradas (vendas a prazo); novas vendas ainda não entram na projeção.</small>`;
+}
+/* ===== PAINEL HOJE + COBRANÇA EM FILA ===== */
+function hojePainel() {
+  const pcs = todasParc().filter(x => x.falta > 0.005), atr = pcs.filter(x => x.vencimento < HOJE), hj = pcs.filter(x => x.vencimento == HOJE);
+  const lim = dia2(new Date(Date.now() + 7 * 864e5)), ct = S.ct.filter(x => !x.pago && x.vencimento <= lim), ent = S.v.filter(v => v.entregue === false);
+  const ap = fluxoDados(3).meses.find(m => m.ac < -0.005);
+  const it = [
+    atr.length && ['🔴', 'Parcelas atrasadas', `${atr.length} · ${R(sum(atr, x => x.falta))}`, "COB.f='atrasadas';go('cobranca')", 'bad'],
+    hj.length && ['📅', 'Vencem hoje', `${hj.length} · ${R(sum(hj, x => x.falta))}`, "COB.f='hoje';go('cobranca')", 'warn'],
+    ent.length && ['🚚', 'Entregas pendentes', String(ent.length), "H.st='Entrega pendente';go('historico')", ''],
+    S.pd.length && ['🛒', 'Pedidos novos do catálogo', String(S.pd.length), "go('pedidos')", 'warn'],
+    ct.length && ['💸', 'Contas a pagar (vencidas ou em 7 dias)', `${ct.length} · ${R(sum(ct, x => x.valor))}`, "go('contas')", ''],
+    ap && ['⚠️', 'Caixa apertado em ' + ap.d.toLocaleDateString('pt-BR', { month: 'long' }), R(ap.ac), "go('fluxo')", 'bad']
+  ].filter(Boolean);
+  return `<div class="card"><h2 class="up">Hoje · ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
+  ${it.length ? `<div class="hoje">${it.map(([i, t, v, a, c]) => `<button class="hj ${c}" onclick="${a}"><span class="em">${i}</span><span><small>${t}</small><b>${v}</b></span></button>`).join('')}</div>` : '<small class="grn">Tudo em dia por aqui. ✅</small>'}</div>`;
+}
+let COB = { f: 'atrasadas' };
+const cobLer = () => { try { const o = JSON.parse(localStorage.getItem('rs_cob') || '{}'); return o.d == HOJE ? o.ids || [] : []; } catch (e) { return []; } };
+const cobGrava = ids => { try { localStorage.setItem('rs_cob', JSON.stringify({ d: HOJE, ids })); } catch (e) {} };
+function cobGrupos() {
+  const sem = dia2(new Date(Date.now() + 7 * 864e5)), g = {};
+  const ok = x => COB.f == 'hoje' ? x.vencimento == HOJE : COB.f == 'semana' ? x.vencimento <= sem : x.vencimento < HOJE;
+  todasParc().filter(x => x.falta > 0.005 && ok(x)).forEach(x => (g[x.c.id] = g[x.c.id] || { c: x.c, l: [] }).l.push(x));
+  return Object.values(g).map(o => ({ ...o, l: o.l.sort((a, b) => a.vencimento < b.vencimento ? -1 : 1), tot: sum(o.l, x => x.falta) })).sort((a, b) => a.l[0].vencimento.localeCompare(b.l[0].vencimento) || b.tot - a.tot);
+}
+function msgCob(c, l) {
+  const atr = l.some(x => x.vencimento < HOJE);
+  return `Olá, ${c.nome}! Tudo bem? 😊\n\nPassando para lembrar ${l.length == 1 ? 'da parcela' : 'das parcelas'} ${atr ? 'em atraso' : 'com vencimento'} na Rozivaldo Store:\n` + l.map(x => `• ${x.numero}ª parcela — ${dt(x.vencimento)} — ${R(x.falta)}`).join('\n') + `\n\n*Total: ${R(sum(l, x => x.falta))}*\n\nSe já pagou, é só me avisar! Qualquer dúvida estou à disposição. 💜`;
+}
+function cobCard(g) {
+  const id = g.c.id, env = cobLer().includes(id);
+  return `<div class="card cob ${env ? 'ok' : ''}" id="cb-${id}"><div class="row"><b>${esc(g.c.nome)}</b><b class="${g.l.some(x => x.vencimento < HOJE) ? 'red' : ''}">${R(g.tot)}</b></div>
+  <small class="blk">${g.l.map(x => `${x.numero}ª · ${dt(x.vencimento)} · ${R(x.falta)}`).join(' | ')}</small>
+  ${g.c.telefone ? `<details><summary class="lnk">Ver / editar mensagem</summary><textarea class="inp" id="mc-${id}" rows="8">${esc(msgCob(g.c, g.l))}</textarea></details>
+  <div class="row"><button class="btn ${env ? 'alt' : ''}" onclick="cobEnviar('${id}')">${env ? '✓ Enviado · enviar de novo' : 'Enviar no WhatsApp'}</button>${env ? `<button class="lnk" onclick="cobDesfaz('${id}')">Desfazer</button>` : ''}</div>`
+    : `<div class="row"><small>Sem WhatsApp cadastrado</small><button class="btn alt" onclick="formCliente('${id}')">Cadastrar número</button></div>`}</div>`;
+}
+function cobResumoTxt() { const g = cobGrupos(), e = cobLer(); return `${g.length} ${g.length == 1 ? 'cliente' : 'clientes'} · ${R(sum(g, x => x.tot))} · ${g.filter(x => e.includes(x.c.id)).length} já cobrados hoje`; }
+function cobRefaz(id) { const g = cobGrupos().find(x => x.c.id == id), el = document.getElementById('cb-' + id); if (g && el) el.outerHTML = cobCard(g); const r = $('#cobres'); if (r) r.textContent = cobResumoTxt(); }
+function cobEnviar(id) {
+  const g = cobGrupos().find(x => x.c.id == id); if (!g) return;
+  const ta = document.getElementById('mc-' + id), txt = ta ? ta.value : msgCob(g.c, g.l);
+  window.open(zapLink(g.c, txt), '_blank');
+  const ids = cobLer(); if (!ids.includes(id)) cobGrava([...ids, id]);
+  cobRefaz(id);
+}
+function cobDesfaz(id) { cobGrava(cobLer().filter(x => x != id)); cobRefaz(id); }
+function cobranca() {
+  return `<h1>Cobrar clientes</h1>
+  <div class="row" style="justify-content:flex-start">${[['atrasadas', 'Atrasadas'], ['hoje', 'Vencem hoje'], ['semana', 'Até 7 dias']].map(([k, l]) => `<button class="btn ${COB.f == k ? '' : 'alt'}" onclick="COB.f='${k}';render()">${l}</button>`).join('')}</div>
+  <p class="mut" id="cobres">${cobResumoTxt()}</p>
+  <small class="blk">A mensagem já vem pronta: toque em "Enviar no WhatsApp", confirme o envio lá e volte para o próximo cliente.</small>
+  <div id="cobl">${cobGrupos().map(cobCard).join('') || '<p class="mut">Ninguém para cobrar neste filtro. 🎉</p>'}</div>`;
+}
 async function excluiPag(id) {
   const p = S.p.find(x => x.id == id); if (!p) return;
   const aviso = p.venda_id ? '\n\nObs.: esse valor foi pago na própria venda. O saldo do cliente vai aumentar; se precisar, ajuste as parcelas em Editar venda.' : '';
@@ -97,7 +231,7 @@ function carregaEdicao() {
   const v = S.v.find(x => x.id == EDIT);
   if (!v) { EDIT = null; return go('inicio'); }
   const f = $('#view form');
-  (v.itens_venda || []).forEach(t => { addItem(); fillRow($('#its').lastElementChild, { produto: t.produto, categoria: t.categoria, qtd: t.quantidade, preco: t.preco_unit }); });
+  (v.itens_venda || []).forEach(t => { addItem(); fillRow($('#its').lastElementChild, { produto: t.produto, categoria: t.categoria, qtd: t.quantidade, preco: t.preco_unit, custo: t.custo_unit }); });
   const pgs = S.p.filter(p => p.venda_id == v.id), pa = S.pa.filter(x => x.venda_id == v.id).sort((a, b) => a.numero - b.numero);
   f.pago.value = pgs.length ? sum(pgs, p => p.valor).toFixed(2) : '';
   if (pgs[0] && pgs[0].forma) f.forma.value = pgs[0].forma;
@@ -153,6 +287,7 @@ const cardMini = p => `<div class="mini">${imgProd(p)}<div class="grow"><b class
 function inicio() {
   const rec = [...S.pr].sort((a, b) => new Date(b.criado_em || 0) - new Date(a.criado_em || 0)).slice(0, 6);
   return `${saudacao('Bem-vindo ao seu Dashboard.')}
+  ${hojePainel()}
   <div class="card"><h2>Sua Vitrine de Produtos - Clique para vender</h2>
   ${S.pr.length ? `<div class="car"><button class="arw l" onclick="rola(-1)">‹</button><div id="vit">${S.pr.map(cardProd).join('')}</div><button class="arw r" onclick="rola(1)">›</button></div><div id="dots"></div>`
       : '<p class="mut">Nenhum produto cadastrado ainda. <button class="lnk" onclick="go(\'catalogo\');formProd()">Cadastrar o primeiro produto</button></p>'}</div>
@@ -201,6 +336,7 @@ function dash() {
   const ms = [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 6 + i); return { k: mes(d), l: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') }; });
   const vals = ms.map(x => sum(S.v.filter(v => mes(v.data) == x.k), v => v.total)), mx = Math.max(...vals, 1);
   const its = S.v.flatMap(v => v.itens_venda), nq = sum(its, i => i.quantidade) || 1;
+  const LM = lucroDe(S.v.filter(v => mes(v.data) == m).flatMap(v => v.itens_venda || []));
   const top = Object.entries(its.reduce((o, t) => (o[t.produto] = (o[t.produto] || 0) + t.quantidade, o), {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
   return `${saudacao('Bem-vindo ao seu Dashboard.')}
   <div class="kpis">
@@ -210,11 +346,13 @@ function dash() {
     <div class="card kpi"><small>VALOR A RECEBER</small><b>${R(tv - rec)}</b></div>
     <div class="card kpi bad"><small>PARCELAS ATRASADAS</small><b>${at.length}</b><small>${R(sum(at, x => x.falta))}</small></div>
     <div class="card kpi"><small>ENTREGA PENDENTE</small><b>${S.v.filter(v => v.entregue === false).length}</b></div>
+    <div class="card kpi"><small>LUCRO NO MÊS</small><b class="${LM.lucro >= 0 ? 'grn' : 'red'}">${LM.base ? R(LM.lucro) : '—'}</b><small>${LM.base ? 'margem ' + pct(LM.margem) : 'informe o custo dos produtos'}</small></div>
   </div>
   <div class="two"><div class="card"><h2>Resumo de vendas</h2><small>Últimos 7 meses</small>
     <div class="bars">${ms.map((x, i) => `<div class="col"><span>${vals[i] ? R(vals[i]).replace('R$', '').trim() : ''}</span><div class="fill"><i style="height:${vals[i] / mx * 100}%"></i></div><span>${x.l}</span></div>`).join('')}</div></div>
   <div><div class="card"><h2>Categorias populares</h2><div class="cats">${CATS.map(k => `<div><div class="cat" style="background:${CC[k]}">${IC[k]}</div><small class="blk">${k}</small><small class="blk">${Math.round(sum(its.filter(t => t.categoria == k), t => t.quantidade) / nq * 100)}%</small></div>`).join('')}</div></div>
   <div class="card"><h2>Mais vendidos</h2>${top.map(([n, q]) => `<div class="row"><small>${esc(n)}</small><b>${q} un.</b></div>`).join('') || '<small>Sem vendas ainda.</small>'}</div></div></div>
+  ${lucroPainel(its)}
   <h2>Parcelas atrasadas</h2>${at.slice(0, 8).map(parcRow).join('') || '<p class="mut">Nenhuma parcela atrasada. 🎉</p>'}
   <div class="card"><h2>Últimos pedidos</h2><div class="tw"><table><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Valor</th><th>Status</th></tr>
   ${S.v.slice(0, 6).map((v, i) => `<tr onclick="go('ficha','${v.cliente_id}')"><td>#${String(S.v.length - i).padStart(4, '0')}</td><td>${new Date(v.data).toLocaleDateString('pt-BR')}</td><td>${esc((S.c.find(c => c.id == v.cliente_id) || {}).nome)}</td><td>${R(v.total)}</td><td>${tag(stVenda(v))}</td></tr>`).join('')}</table></div></div>`;
@@ -318,6 +456,7 @@ function addItem() {
   <div class="grid3"><label><small>Categoria</small><select class="inp" name="categoria">${opts(CATS)}</select></label>
   <label><small>Qtd</small><input class="inp" name="quantidade" type="number" min="1" value="1" oninput="calc()"></label>
   <label><small>Preço un. (R$)</small><input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00" oninput="calc()" required></label></div>
+  <label><small>Custo un. (R$, opcional: para calcular o lucro)</small><input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00"></label>
   <div class="row"><button type="button" class="lnk" onclick="this.closest('.it').remove();calc()">Remover item</button><b class="sub"></b></div>`;
   $('#its').append(d);
 }
@@ -343,7 +482,7 @@ function calc() {
 async function salvaVenda(e) {
   e.preventDefault();
   const f = e.target, q = (r, n) => r.querySelector(`[name=${n}]`).value;
-  const itens = [...document.querySelectorAll('.it')].map(r => ({ produto: q(r, 'produto'), categoria: q(r, 'categoria'), quantidade: +q(r, 'quantidade'), preco_unit: +q(r, 'preco') }));
+  const itens = [...document.querySelectorAll('.it')].map(r => ({ produto: q(r, 'produto'), categoria: q(r, 'categoria'), quantidade: +q(r, 'quantidade'), preco_unit: +q(r, 'preco'), custo_unit: q(r, 'custo') === '' ? null : +q(r, 'custo') }));
   if (!itens.length) return toast('Adicione ao menos um item');
   const total = calc(), pago = +f.pago.value || 0, cid = f.cliente_id.value;
   if (pago > total) return toast('O valor pago é maior que o total da venda');
@@ -389,6 +528,7 @@ function pick(sel) {
   r.querySelector('[name=produto]').value = p.nome;
   r.querySelector('[name=categoria]').value = p.categoria;
   r.querySelector('[name=preco]').value = Number(p.preco).toFixed(2);
+  r.querySelector('[name=custo]').value = p.custo != null ? Number(p.custo).toFixed(2) : '';
   calc();
 }
 
@@ -396,7 +536,7 @@ function catalogo() {
   return `<div class="row"><h1>Catálogo</h1><button class="btn" onclick="formProd()">+ Novo produto</button></div>
   <div class="card"><small>🔗 Link da vitrine para seus clientes</small><b class="blk" style="word-break:break-all">${LINK()}</b>
   <div class="row" style="margin-top:8px"><button class="btn" onclick="copiaLink()">Copiar link</button><a class="btn alt" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Veja nosso catálogo: ' + LINK())}">Enviar no WhatsApp</a></div></div>
-  ${CATS.map(k => { const l = S.pr.filter(p => p.categoria == k); return l.length ? `<h2>${k}</h2>` + l.map(p => `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}</small></b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`).join('') : ''; }).join('')}
+  ${CATS.map(k => { const l = S.pr.filter(p => p.categoria == k); return l.length ? `<h2>${k}</h2>` + l.map(p => `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}${p.custo != null && p.preco > 0 ? ` · custo ${R(p.custo)} · margem ${pct((p.preco - p.custo) / p.preco)}` : ''}</small></b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`).join('') : ''; }).join('')}
   ${S.pr.length ? '' : '<p class="mut">Catálogo vazio. Cadastre seus produtos para escolher na hora da venda.</p>'}`;
 }
 function formProd(id) {
@@ -405,7 +545,8 @@ function formProd(id) {
   <input class="inp" name="nome" placeholder="Nome do produto" value="${esc(p.nome)}" required>
   <input class="inp" name="sku" placeholder="Código SKU (vazio = gerar automático)" value="${esc(p.sku)}">
   <select class="inp" name="categoria">${opts(CATS)}</select>
-  <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço (R$)" value="${p.preco ?? ''}" required>
+  <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de venda (R$)" value="${p.preco ?? ''}" required>
+  <input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de custo (R$) — quanto você pagou" value="${p.custo ?? ''}">
   <label><small>Foto (opcional)</small><input class="inp" name="foto" type="file" accept="image/*"></label>
   <label class="row"><span>Mostrar na vitrine online</span><input type="checkbox" name="vitrine" ${p.vitrine === false ? '' : 'checked'}></label>
   <button class="btn w">Salvar produto</button></form>`);
@@ -413,7 +554,7 @@ function formProd(id) {
 }
 async function salvaProd(e, id) {
   e.preventDefault();
-  const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco'), vitrine: fd.get('vitrine') == 'on', sku: (fd.get('sku') || '').trim() || skuNovo(fd.get('categoria')) };
+  const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco'), custo: fd.get('custo') === '' ? null : +fd.get('custo'), vitrine: fd.get('vitrine') == 'on', sku: (fd.get('sku') || '').trim() || skuNovo(fd.get('categoria')) };
   const file = fd.get('foto'); if (file && file.size) d.foto = await redim(file);
   const { error } = id ? await db.from('produtos').update(d).eq('id', id) : await db.from('produtos').insert(d);
   if (error) return toast('Erro: ' + error.message);
@@ -438,11 +579,12 @@ function relRes(ret) {
   const cat = CATS.map(k => [k, sum(vs.flatMap(v => v.itens_venda).filter(t => t.categoria == k), t => t.quantidade * t.preco_unit)]);
   const h = `<div class="grid"><div class="card"><small>Vendido no período</small><b class="blk">${R(sum(vs, v => v.total))}</b></div>
   <div class="card"><small>Recebido no período</small><b class="blk grn">${R(sum(ps, p => p.valor))}</b></div></div>
+  ${lucroRel(vs)}
   <h2>Quanto vou receber por mês</h2><small>Parcelas por mês de vencimento. Toque no mês para ver quem paga.</small>${previsao()}
   <h2>Produtos mais vendidos</h2>${top.map(([n, q]) => `<div class="card row"><span>${esc(n)}</span><b>${q} un.</b></div>`).join('') || '<p class="mut">Sem vendas neste filtro.</p>'}
   <h2>Por categoria</h2>${cat.map(([k, t]) => `<div class="card row"><span>${k}</span><b>${R(t)}</b></div>`).join('')}
   <h2>Vendas (${vs.length})</h2>
-  ${vs.map(v => { const c = S.c.find(x => x.id == v.cliente_id) || {}; return `<div class="card"><div class="row"><b>${D(v.data)}</b><b>${R(v.total)}</b></div><button class="lnk" onclick="go('ficha','${v.cliente_id}')">${esc(c.nome)}</button><small class="blk">${v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', ')}</small></div>`; }).join('') || '<p class="mut">Nenhuma venda neste filtro.</p>'}`;
+  ${vs.map(v => { const c = S.c.find(x => x.id == v.cliente_id) || {}; return `<div class="card"><div class="row"><b>${D(v.data)}</b><b>${R(v.total)}</b></div><button class="lnk" onclick="go('ficha','${v.cliente_id}')">${esc(c.nome)}</button><small class="blk">${v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', ')}</small>${lucroTag(v)}</div>`; }).join('') || '<p class="mut">Nenhuma venda neste filtro.</p>'}`;
   if (ret) return h;
   $('#rel').innerHTML = h;
 }
@@ -459,7 +601,7 @@ function relPDF() {
   const cts = F.cli ? [] : S.ct;
   const pagasPer = cts.filter(x => x.pago && x.pago_em && noPer(x.pago_em));
   const vendido = sum(vs, v => v.total), recebido = sum(ps, p => p.valor), saidas = sum(pagasPer, x => x.valor);
-  const saldo = recebido - saidas;
+  const saldo = recebido - saidas, LP = lucroDe(itens);
   const top = Object.entries(itens.reduce((o, t) => (o[t.produto] = (o[t.produto] || 0) + t.quantidade, o), {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const nome = id => esc((S.c.find(c => c.id == id) || {}).nome || '—');
   const tb = (head, rows) => `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td${String(c).startsWith('R$') ? ' class="n"' : ''}>${c}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}" class="vz">Sem registros neste período</td></tr>`}</tbody></table>`;
@@ -508,10 +650,16 @@ tr{page-break-inside:avoid}
 <div class="r"><small>Contas pagas no período</small><b>${R(saidas)}</b></div>
 <div class="${saldo >= 0 ? 'g' : 'r'}"><small>Saldo (recebido − contas pagas)</small><b>${R(saldo)}</b></div>
 </div>
+<div class="kp" style="margin-top:10px"><div class="${LP.lucro >= 0 ? 'g' : 'r'}"><small>Lucro bruto</small><b>${R(LP.lucro)}</b></div><div><small>Margem de lucro</small><b>${pct(LP.margem)}</b></div><div class="y"><small>Custo dos produtos vendidos</small><b>${R(LP.custo)}</b></div></div>
+${LP.total > 0 && LP.cobertura < 0.999 ? `<p style="color:#8a96ad;font-size:10px;margin:6px 0 0">Lucro calculado sobre ${pct(LP.cobertura)} das vendas (as demais não têm custo informado).</p>` : ''}
 <h2>Vendas por categoria</h2>
 ${tb(['Categoria', 'Unidades', 'Total'], CATS.map(k => { const l = itens.filter(t => t.categoria == k); return [k, sum(l, t => t.quantidade), R(sum(l, t => t.quantidade * t.preco_unit))]; }))}
 <h2>Produtos mais vendidos</h2>
 ${tb(['Produto', 'Unidades'], top.map(([n, q]) => [esc(n), q]))}
+<h2>Lucro por categoria</h2>
+${tb(['Categoria', 'Vendido', 'Custo', 'Lucro', 'Margem'], lucroPorCat(itens).map(([k, l]) => [k, R(l.total), R(l.custo), l.base ? R(l.lucro) : '—', l.base ? pct(l.margem) : '—']))}
+<h2>Produtos mais lucrativos</h2>
+${tb(['Produto', 'Unidades', 'Lucro'], lucroPorProd(itens, 10).map(([n, o]) => [esc(n), o.q, R(o.l)]))}
 <h2>Previsão de recebimento por mês</h2>
 ${tb(['Mês', 'Parcelas', 'Valor total', 'Falta receber'], prev)}
 <h2>Parcelas em atraso</h2>
@@ -521,7 +669,7 @@ ${tb(['Data', 'Cliente', 'Forma', 'Valor'], ps.map(p => [new Date(p.criado_em).t
 ${F.cli ? '' : `<h2>Contas a pagar</h2>
 ${tb(['Descrição', 'Forma', 'Vencimento', 'Valor', 'Situação'], [...cts].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1).map(x => [esc(x.descricao) + (x.parcelas_total > 1 ? ` (${x.parcela_num}/${x.parcelas_total})` : ''), esc(x.forma || '—'), dt(x.vencimento), R(x.valor), st(x.pago ? 'Pago' : (x.vencimento < HOJE ? 'Atrasado' : 'A vencer'))]))}`}
 <h2>Vendas detalhadas (${vs.length})</h2>
-${tb(['Data', 'Cliente', 'Itens', 'Total', 'Situação'], vs.map(v => [new Date(v.data).toLocaleDateString('pt-BR'), nome(v.cliente_id), v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', '), R(v.total), st(stVenda(v))]))}
+${tb(['Data', 'Cliente', 'Itens', 'Total', 'Lucro', 'Situação'], vs.map(v => { const lv = lucroDe(v.itens_venda || []); return [new Date(v.data).toLocaleDateString('pt-BR'), nome(v.cliente_id), v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', '), R(v.total), lv.base ? R(lv.lucro) : '—', st(stVenda(v))]; }))}
 </div>
 <div class="foot">Rozivaldo Store · Relatório gerado automaticamente pelo sistema de gestão</div>
 </div></body></html>`;
@@ -575,7 +723,7 @@ function parcRow(x) {
 }
 function financeiro() {
   const t = todasParc().filter(x => x.st != 'Paga').sort((a, b) => a.vencimento < b.vencimento ? -1 : 1);
-  return `<h1>Financeiro</h1><p class="mut">Parcelas em aberto: ${t.length} · ${R(sum(t, x => x.falta))}</p>${t.map(parcRow).join('') || '<p class="mut">Nenhuma parcela em aberto.</p>'}`;
+  return `<div class="row"><h1>Financeiro</h1><span><button class="btn alt" onclick="go('fluxo')">Fluxo de caixa</button> <button class="btn" onclick="COB.f='atrasadas';go('cobranca')">Cobrar atrasados</button></span></div><p class="mut">Parcelas em aberto: ${t.length} · ${R(sum(t, x => x.falta))}</p>${t.map(parcRow).join('') || '<p class="mut">Nenhuma parcela em aberto.</p>'}`;
 }
 
 function previsao() {
@@ -599,10 +747,10 @@ let H = { q: '', st: '' }, M = mes(new Date());
 const cn = id => esc((S.c.find(c => c.id == id) || {}).nome);
 function historico() {
   return `<h1>Histórico de vendas</h1><div class="grid"><input class="inp" placeholder="Buscar cliente" value="${esc(H.q)}" oninput="H.q=this.value;histRes()">
-  <select class="inp" onchange="H.st=this.value;histRes()">${['', 'Pago', 'Pendente', 'Atrasado'].map(x => `<option value="${x}" ${H.st == x ? 'selected' : ''}>${x || 'Todos os status'}</option>`).join('')}</select></div><div id="hist">${histRes(1)}</div>`;
+  <select class="inp" onchange="H.st=this.value;histRes()">${['', 'Pago', 'Pendente', 'Atrasado', 'Entrega pendente'].map(x => `<option value="${x}" ${H.st == x ? 'selected' : ''}>${x || 'Todos os status'}</option>`).join('')}</select></div><div id="hist">${histRes(1)}</div>`;
 }
 function histRes(r) {
-  const l = S.v.filter(v => (S.c.find(c => c.id == v.cliente_id) || {}).nome?.toLowerCase().includes(H.q.toLowerCase()) && (!H.st || stVenda(v) == H.st));
+  const l = S.v.filter(v => (S.c.find(c => c.id == v.cliente_id) || {}).nome?.toLowerCase().includes(H.q.toLowerCase()) && (!H.st || (H.st == 'Entrega pendente' ? v.entregue === false : stVenda(v) == H.st)));
   const h = `<small>${l.length} vendas · ${R(sum(l, v => v.total))}</small>` + (l.map(v => `<div class="card"><div class="row"><b>${cn(v.cliente_id)}</b><span>${R(v.total)} ${tag(stVenda(v))} ${v.entregue === false ? '<em class="tag wait">Entrega pendente</em>' : ''}</span></div>
     <small class="blk">${D(v.data)} · ${v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', ')}</small>
     <div class="row"><button class="lnk" onclick="go('ficha','${v.cliente_id}')">Abrir cliente</button><button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar</button><button class="lnk" onclick="zapVenda('${v.id}')">WhatsApp</button><button class="lnk red" onclick="excluiVenda('${v.id}')">Excluir</button>${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}</div></div>`).join('') || '<p class="mut">Nenhuma venda encontrada.</p>');
@@ -719,6 +867,7 @@ function ajustes() {
   <div class="card"><h2>Alterar senha</h2><form onsubmit="novaSenha(event)">
   <input class="inp" name="s1" type="password" minlength="8" placeholder="Nova senha (mínimo 8 caracteres)" required>
   <input class="inp" name="s2" type="password" placeholder="Repita a nova senha" required><button class="btn w">Salvar nova senha</button></form></div>
+  ${cardInstalar()}
   <div class="card"><h2>Backup dos dados</h2><small class="blk">Baixa um arquivo com clientes, vendas, pagamentos, parcelas, produtos e contas. Guarde em local seguro.</small>
   <button class="btn alt w" style="margin-top:8px" onclick="backup()">Baixar backup</button></div>`;
 }
@@ -746,6 +895,7 @@ function fillRow(row, i) {
   else { row.querySelector('[name=produto]').value = i.produto; row.querySelector('[name=categoria]').value = i.categoria; }
   row.querySelector('[name=quantidade]').value = i.qtd;
   if (i.preco != null) row.querySelector('[name=preco]').value = Number(i.preco).toFixed(2);
+  if (i.custo != null) row.querySelector('[name=custo]').value = Number(i.custo).toFixed(2);
 }
 function iniciaVenda() {
   PKEY = ''; PDATES = [];
@@ -843,7 +993,23 @@ $('#lf').onsubmit = async e => {
 async function start() {
   const { data } = await db.auth.getSession();
   $('#login').hidden = !!data.session; $('#app').hidden = !data.session;
-  if (data.session) { await load(); render(); }
+  if (data.session) { await load(); const g = new URLSearchParams(location.search).get('go'); if (['venda', 'cobranca', 'fluxo', 'contas', 'historico', 'clientes', 'dash'].includes(g)) cur = g; render(); }
 }
+/* ===== APLICATIVO INSTALÁVEL ===== */
+let INST = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); INST = e; if (cur == 'ajustes') render(); });
+window.addEventListener('appinstalled', () => { INST = null; toast('App instalado! 🎉'); if (cur == 'ajustes') render(); });
+const jaApp = () => window.matchMedia && (matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+async function instalar() {
+  if (!INST) return toast('Use o menu do navegador: "Instalar app" (Android/Chrome) ou Compartilhar → Adicionar à Tela de Início (iPhone)');
+  INST.prompt(); await INST.userChoice; INST = null; render();
+}
+function cardInstalar() {
+  return `<div class="card"><h2>📲 Instalar como aplicativo</h2>${jaApp() ? '<small class="grn blk">Você já está usando o app instalado. ✅</small>'
+    : `<small class="blk">Ganhe um ícone na tela do celular, abertura em tela cheia e carregamento mais rápido.</small>
+    <button class="btn w" style="margin-top:8px" onclick="instalar()">Instalar app</button>
+    <small class="blk" style="margin-top:8px"><b>iPhone:</b> Safari → Compartilhar → Adicionar à Tela de Início.<br><b>Android:</b> Chrome → menu ⋮ → Instalar app.</small>`}</div>`;
+}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 function sair() { db.auth.signOut().then(start); }
 start();

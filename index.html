@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Rozivaldo Store</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1521">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rozivaldo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -65,6 +73,8 @@
     <details><summary><svg class="ic"><use href="#i-wallet"/></svg>Financeiro</summary>
       <button data-nav="financeiro" onclick="go('financeiro')">Parcelas</button>
       <button data-nav="recebimentos" onclick="go('recebimentos')">Recebimentos</button>
+      <button data-nav="cobranca" onclick="COB.f='atrasadas';go('cobranca')">Cobrar atrasados</button>
+      <button data-nav="fluxo" onclick="go('fluxo')">Fluxo de caixa</button>
       <button data-nav="contas" onclick="go('contas')">Contas a pagar</button>
     </details>
 

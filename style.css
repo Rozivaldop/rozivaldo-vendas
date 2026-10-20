@@ -95,3 +95,11 @@ aside .mic{margin-left:auto;color:#ec4899}aside .mic .ic{width:16px;height:16px}
 .fchips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
 .fc{display:flex;align-items:center;gap:8px;background:#101826;border:1px solid var(--line);border-radius:10px;padding:5px 12px 5px 5px;font-size:.82rem}
 .fc svg{width:28px;height:28px;flex:none}.fc b{font-size:.92rem}
+
+/* ===== Painel Hoje, fluxo de caixa, cobrança ===== */
+.hoje{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.hj{flex:1 1 210px;display:flex;gap:10px;align-items:center;background:#101826;border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.hj:hover{border-color:var(--blue)}.hj.bad{border-color:#7f1d1d;background:#1d1417}.hj.warn{border-color:#713f12}
+.hj .em{font-size:1.5rem}.hj small{display:block}.hj b{display:block;font-size:1.05rem}
+.fxg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.fxg b{font-size:1.05rem}
+.cob.ok{opacity:.7;border-color:#14532d}.cob textarea{margin-top:8px}.cob .row{margin-top:8px}
