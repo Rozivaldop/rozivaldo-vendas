@@ -86,3 +86,12 @@ aside .mic{margin-left:auto;color:#ec4899}aside .mic .ic{width:16px;height:16px}
 .mini{display:flex;gap:12px;align-items:center;background:#101826;border:1px solid var(--line);border-radius:12px;padding:10px}
 .mini img,.mini .pimg{width:76px;height:76px;aspect-ratio:auto;flex:none}
 @media(max-width:820px){.pc{flex-basis:calc((100% - 10px)/2)}.car{padding:0 12px}.audio{width:100%}}
+
+/* ===== Contas a pagar: formas de pagamento ===== */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;background:#0e1626;border:1px solid var(--line);border-radius:10px;font-size:.78rem;cursor:pointer;text-align:center}
+.tile input{display:none}.tile svg{width:34px;height:34px}
+.tile:has(input:checked){border-color:var(--blue);background:#16233d;box-shadow:0 0 0 1px var(--blue)}
+.fchips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.fc{display:flex;align-items:center;gap:8px;background:#101826;border:1px solid var(--line);border-radius:10px;padding:5px 12px 5px 5px;font-size:.82rem}
+.fc svg{width:28px;height:28px;flex:none}.fc b{font-size:.92rem}

@@ -44,12 +44,41 @@ function fecha() { $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== RECEBIMENTOS: vínculo com a venda e edição ===== */
+function vendasAbertas(cid) {
+  const pa = parc(cid);
+  return S.v.filter(v => v.cliente_id == cid).map(v => ({ v, falta: sum(pa.filter(x => x.venda_id == v.id), x => x.falta) })).filter(o => o.falta > 0.005);
+}
+const rotVenda = (v, falta) => new Date(v.data).toLocaleDateString('pt-BR') + ' · ' + R(v.total) + (falta != null ? ' · falta ' + R(falta) : '');
+function editaPag(id) {
+  const p = S.p.find(x => x.id == id); if (!p) return;
+  if (p.venda_id) { toast('Esse valor foi pago na própria venda: altere aqui em Editar venda'); return go('venda', p.cliente_id, p.venda_id); }
+  const vs = S.v.filter(v => v.cliente_id == p.cliente_id), fs = [...new Set([...FORMAS, p.forma].filter(Boolean))];
+  modal(`<h2>Editar recebimento</h2><p class="mut">${cn(p.cliente_id)}</p><form onsubmit="salvaEdPag(event,'${id}')">
+  <input class="inp" name="valor" type="number" step="0.01" min="0.01" inputmode="decimal" value="${Number(p.valor).toFixed(2)}" required>
+  <select class="inp" name="forma">${fs.map(f => `<option ${f == p.forma ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select>
+  <label><small>Data do recebimento</small><input class="inp" type="date" name="data" value="${dia2(new Date(p.criado_em))}" required></label>
+  <label><small>Referente a qual venda?</small><select class="inp" name="ref"><option value="">Automático (parcelas mais antigas)</option>${vs.map(v => `<option value="${v.id}" ${v.id == p.ref_venda_id ? 'selected' : ''}>${rotVenda(v)}</option>`).join('')}</select></label>
+  <button class="btn w">Salvar recebimento</button></form>`);
+}
+async function salvaEdPag(e, id) {
+  e.preventDefault();
+  const f = e.target, p = S.p.find(x => x.id == id), d = { valor: +f.valor.value, forma: f.forma.value, ref_venda_id: f.ref.value || null };
+  if (f.data.value != dia2(new Date(p.criado_em))) d.criado_em = new Date(f.data.value + 'T12:00:00').toISOString();
+  const { error } = await db.from('pagamentos').update(d).eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  fecha(); await load(); render(); toast('Recebimento atualizado');
+}
 async function excluiVenda(id) {
   const v = S.v.find(x => x.id == id); if (!v) return;
   if (!confirm('Excluir esta venda de ' + R(v.total) + '? Os itens, as parcelas e os pagamentos dela também serão apagados. Não dá para desfazer.')) return;
   const { error } = await db.from('vendas').delete().eq('id', id);
   if (error) return toast('Erro: ' + error.message);
   EDIT = null; await load();
+  const sobra = S.p.filter(p => p.cliente_id == v.cliente_id && !p.venda_id && !p.ref_venda_id);
+  if (!S.v.some(x => x.cliente_id == v.cliente_id) && sobra.length && confirm('Este cliente não tem mais nenhuma venda, mas ainda tem ' + R(sum(sobra, p => p.valor)) + ' em recebimentos avulsos registrados.\n\nApagar esses recebimentos também? (eles saem do caixa)')) {
+    await db.from('pagamentos').delete().in('id', sobra.map(p => p.id)); await load();
+  }
   if (cur == 'venda') go('ficha', v.cliente_id); else render();
   toast('Venda excluída');
 }
@@ -233,7 +262,7 @@ function ficha() {
     ${(v.itens_venda || []).map(t => `<small class="blk">${t.quantidade}× ${esc(t.produto)} (${t.categoria}) — ${R(t.preco_unit)}</small>`).join('')}
     <div class="row">${v.entregue === false ? `<button class="lnk" onclick="entregar('${v.id}')">🚚 Marcar entregue</button>` : ''}<button class="lnk" onclick="go('venda','${v.cliente_id}','${v.id}')">✏️ Editar venda</button><button class="lnk" onclick="zapVenda('${v.id}')">Enviar no WhatsApp</button><button class="lnk red" onclick="excluiVenda('${v.id}')">Excluir venda</button></div></div>`).join('') || '<p class="mut">Nenhuma compra ainda.</p>'}
   <h2>Pagamentos recebidos</h2>
-  ${i.ps.map(p => `<div class="card row"><span>${D(p.criado_em)}<small class="blk">${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b><button class="lnk" onclick="del('pagamentos','${p.id}')">Excluir</button></div>`).join('') || '<p class="mut">Nenhum pagamento ainda.</p>'}`;
+  ${i.ps.map(p => `<div class="card row"><span>${D(p.criado_em)}<small class="blk">${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b><button class="lnk" onclick="editaPag('${p.id}')">Editar</button><button class="lnk" onclick="del('pagamentos','${p.id}')">Excluir</button></div>`).join('') || '<p class="mut">Nenhum pagamento ainda.</p>'}`;
 }
 
 function formPag(id) {
@@ -242,12 +271,13 @@ function formPag(id) {
   <form onsubmit="salvaPag(event,'${id}')">
   <input class="inp" name="valor" type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="Valor recebido (R$)" required>
   <select class="inp" name="forma">${opts(FORMAS)}</select>
+  <label><small>Referente a qual venda?</small><select class="inp" name="ref"><option value="">Automático (parcelas mais antigas)</option>${vendasAbertas(id).map((o, _, a) => `<option value="${o.v.id}" ${a.length == 1 ? 'selected' : ''}>${rotVenda(o.v, o.falta)}</option>`).join('')}</select></label>
   <button class="btn w">Registrar pagamento</button></form>`);
 }
 async function salvaPag(e, id) {
   e.preventDefault();
   const f = e.target;
-  const { error } = await db.from('pagamentos').insert({ cliente_id: id, valor: +f.valor.value, forma: f.forma.value });
+  const { error } = await db.from('pagamentos').insert({ cliente_id: id, valor: +f.valor.value, forma: f.forma.value, ref_venda_id: f.ref.value || null });
   if (error) return toast('Erro: ' + error.message);
   fecha(); await load(); render(); toast('Pagamento registrado');
 }
@@ -480,7 +510,7 @@ ${tb(['Cliente', 'Parcela', 'Vencimento', 'Falta receber'], atras.sort((a, b) =>
 <h2>Recebimentos no período</h2>
 ${tb(['Data', 'Cliente', 'Forma', 'Valor'], ps.map(p => [new Date(p.criado_em).toLocaleDateString('pt-BR'), nome(p.cliente_id), esc(p.forma || '—'), R(p.valor)]))}
 ${F.cli ? '' : `<h2>Contas a pagar</h2>
-${tb(['Descrição', 'Vencimento', 'Valor', 'Situação'], [...cts].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1).map(x => [esc(x.descricao), dt(x.vencimento), R(x.valor), st(x.pago ? 'Pago' : (x.vencimento < HOJE ? 'Atrasado' : 'A vencer'))]))}`}
+${tb(['Descrição', 'Forma', 'Vencimento', 'Valor', 'Situação'], [...cts].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1).map(x => [esc(x.descricao) + (x.parcelas_total > 1 ? ` (${x.parcela_num}/${x.parcelas_total})` : ''), esc(x.forma || '—'), dt(x.vencimento), R(x.valor), st(x.pago ? 'Pago' : (x.vencimento < HOJE ? 'Atrasado' : 'A vencer'))]))}`}
 <h2>Vendas detalhadas (${vs.length})</h2>
 ${tb(['Data', 'Cliente', 'Itens', 'Total', 'Situação'], vs.map(v => [new Date(v.data).toLocaleDateString('pt-BR'), nome(v.cliente_id), v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', '), R(v.total), st(stVenda(v))]))}
 </div>
@@ -516,11 +546,12 @@ const redim = f => new Promise(ok => {
 });
 // Pagamentos de baixa (sem venda) quitam as parcelas do cliente da mais antiga para a mais nova
 function parc(cid) {
-  let pool = sum(S.p.filter(p => p.cliente_id == cid && !p.venda_id), p => p.valor);
-  return S.pa.filter(x => x.cliente_id == cid).sort((a, b) => a.vencimento < b.vencimento ? -1 : 1).map(x => {
-    const v = Number(x.valor), pg = Math.min(pool, v); pool -= pg;
-    return { ...x, falta: v - pg, st: v - pg < 0.005 ? 'Paga' : x.vencimento < HOJE ? 'Atrasada' : 'A vencer' };
-  });
+  const vend = {}; let pool = 0;
+  S.p.filter(p => p.cliente_id == cid && !p.venda_id).forEach(p => { if (p.ref_venda_id) vend[p.ref_venda_id] = (vend[p.ref_venda_id] || 0) + Number(p.valor); else pool += Number(p.valor); });
+  const l = S.pa.filter(x => x.cliente_id == cid).sort((a, b) => a.vencimento < b.vencimento ? -1 : 1);
+  const f = l.map(x => { const v = Number(x.valor), pg = Math.min(vend[x.venda_id] || 0, v); vend[x.venda_id] = (vend[x.venda_id] || 0) - pg; return v - pg; });
+  pool += sum(Object.values(vend), a => a);
+  return l.map((x, i) => { const pg = Math.min(pool, f[i]); pool -= pg; const falta = f[i] - pg; return { ...x, falta, st: falta < 0.005 ? 'Paga' : x.vencimento < HOJE ? 'Atrasada' : 'A vencer' }; });
 }
 const todasParc = () => S.c.flatMap(c => parc(c.id).map(x => ({ ...x, c })));
 function stVenda(v) {
@@ -577,33 +608,96 @@ function recRes(r) {
   const l = S.p.filter(p => mes(p.criado_em) == M);
   const h = `<div class="card"><small>Total recebido no mês</small><b class="blk grn" style="font-size:1.6rem">${R(sum(l, p => p.valor))}</b>
     <small class="blk">${FORMAS.map(f => f + ': ' + R(sum(l.filter(p => p.forma == f), p => p.valor))).join(' · ')}</small></div>` +
-    (l.map(p => `<div class="card row"><span><b>${cn(p.cliente_id)}</b><small class="blk">${D(p.criado_em)} · ${esc(p.forma)}</small></span><b class="grn">${R(p.valor)}</b></div>`).join('') || '<p class="mut">Nenhum recebimento neste mês.</p>');
+    (l.map(p => `<div class="card row"><span><b>${cn(p.cliente_id)}</b><small class="blk">${D(p.criado_em)} · ${esc(p.forma)}</small></span><span><b class="grn">${R(p.valor)}</b> <button class="lnk" onclick="editaPag('${p.id}')">Editar</button></span></div>`).join('') || '<p class="mut">Nenhum recebimento neste mês.</p>');
   if (r) return h;
   $('#rec').innerHTML = h;
 }
 
+/* ===== CONTAS A PAGAR: cartões, à vista, parcelas e resumo por mês ===== */
+const addMes = (s, k) => { const [a, m, d] = s.split('-').map(Number), t = new Date(a, m - 1 + k, 1), u = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); t.setDate(Math.min(d, u)); return dia2(t); };
+const SVGS = {
+  nubank: '<rect width="32" height="32" rx="8" fill="#820AD1"/><text x="16" y="21.5" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="14" fill="#fff">nu</text>',
+  master: '<rect width="32" height="32" rx="8" fill="#1f2937"/><circle cx="12.5" cy="16" r="7" fill="#EB001B"/><circle cx="19.5" cy="16" r="7" fill="#F79E1B"/><path d="M16 10.4a7 7 0 0 1 0 11.2 7 7 0 0 1 0-11.2z" fill="#FF5F00"/>',
+  pix: '<rect width="32" height="32" rx="8" fill="#32BCAD"/><path d="M16 6l10 10-10 10L6 16z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="M11.5 16 16 11.5 20.5 16 16 20.5z" fill="#fff"/>',
+  cash: '<rect width="32" height="32" rx="8" fill="#15803d"/><rect x="5" y="9" width="22" height="14" rx="2.5" fill="#bbf7d0"/><circle cx="16" cy="16" r="3.6" fill="#15803d"/><circle cx="8.8" cy="16" r="1.2" fill="#15803d"/><circle cx="23.2" cy="16" r="1.2" fill="#15803d"/>',
+  card: '<rect width="32" height="32" rx="8" fill="#334155"/><rect x="5" y="9" width="22" height="14" rx="2.5" fill="#94a3b8"/><rect x="5" y="12.5" width="22" height="3.4" fill="#1e293b"/><rect x="8" y="19" width="7" height="1.8" rx=".9" fill="#1e293b"/>',
+  other: '<rect width="32" height="32" rx="8" fill="#475569"/><circle cx="16" cy="16" r="5" fill="none" stroke="#e2e8f0" stroke-width="2.2"/><path d="M16 13.5v5M13.5 16h5" stroke="#e2e8f0" stroke-width="2"/>'
+};
+const ICOF = (f, t) => {
+  const k = nz(String(f || '')), s = /nubank|^nu$/.test(k) ? 'nubank' : /master/.test(k) ? 'master' : /pix/.test(k) ? 'pix' : /dinheiro|especie/.test(k) ? 'cash' : t == 'cartao' ? 'card' : 'other';
+  return `<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">${SVGS[s]}</svg>`;
+};
+const CTILES = [['Nubank', 'cartao', 'Nubank'], ['Mastercard', 'cartao', 'Mastercard'], ['Outro cartão', 'cartao', 'Outro cartão'], ['Pix', 'vista', 'Pix'], ['Dinheiro', 'vista', 'Dinheiro'], ['Outro', 'vista', 'Outro']];
+function contaRow(x) {
+  return `<div class="card row"><span style="display:flex;gap:10px;align-items:center">${ICOF(x.forma, x.tipo)}<span><b>${esc(x.descricao)}${x.parcelas_total > 1 ? ` <small>(${x.parcela_num}/${x.parcelas_total})</small>` : ''}</b><small class="blk">${esc(x.forma || 'Outro')} · vence ${dt(x.vencimento)}</small></span></span>
+  <span>${R(x.valor)} ${x.pago ? tag('Pago') : tag(x.vencimento < HOJE ? 'Atrasado' : 'A vencer')}
+  ${x.pago ? '' : `<button class="lnk" onclick="pagaConta('${x.id}')">Dar baixa</button>`}<button class="lnk red" onclick="excluiConta('${x.id}')">Excluir</button></span></div>`;
+}
 function contas() {
-  const l = [...S.ct].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1), mm = mes(new Date());
+  const l = [...S.ct].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1), mm = mes(new Date()), ab = l.filter(x => !x.pago), pg = l.filter(x => x.pago).reverse();
   const saldo = sum(S.p.filter(p => mes(p.criado_em) == mm), p => p.valor) - sum(S.ct.filter(x => x.pago && mes(x.pago_em) == mm), x => x.valor);
+  const fm = x => x.forma || 'Outro', porForma = {}, tp = {}, g = {};
+  ab.forEach(x => { porForma[fm(x)] = (porForma[fm(x)] || 0) + Number(x.valor); tp[fm(x)] = x.tipo; (g[x.vencimento.slice(0, 7)] = g[x.vencimento.slice(0, 7)] || []).push(x); });
+  const chips = o => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<span class="fc">${ICOF(f, tp[f])}<span>${esc(f)}<b class="blk">${R(v)}</b></span></span>`).join('');
   return `<div class="row"><h1>Contas a pagar</h1><button class="btn" onclick="formConta()">+ Nova conta</button></div>
-  <div class="grid"><div class="card"><small>Em aberto</small><b class="blk red">${R(sum(l.filter(x => !x.pago), x => x.valor))}</b></div>
-  <div class="card"><small>Saldo do mês (recebido − contas pagas)</small><b class="blk ${saldo >= 0 ? 'grn' : 'red'}">${R(saldo)}</b></div></div>
-  ${l.map(x => `<div class="card row"><span><b>${esc(x.descricao)}</b><small class="blk">vence ${dt(x.vencimento)}</small></span><span>${R(x.valor)} ${x.pago ? tag('Pago') : tag(x.vencimento < HOJE ? 'Atrasado' : 'A vencer')}
-    ${x.pago ? '' : `<button class="lnk" onclick="pagaConta('${x.id}')">Dar baixa</button>`}<button class="lnk red" onclick="del('contas','${x.id}')">Excluir</button></span></div>`).join('') || '<p class="mut">Nenhuma conta cadastrada.</p>'}`;
+  <div class="grid"><div class="card"><small>Em aberto</small><b class="blk red">${R(sum(ab, x => x.valor))}</b></div>
+  <div class="card"><small>Saldo do mês (recebido − contas pagas)</small><b class="blk ${saldo >= 0 ? 'grn' : 'red'}">${R(saldo)}</b></div>
+  <div class="card w2"><small>A cobrir até o fim deste mês (inclui atrasadas)</small><b class="blk">${R(sum(ab.filter(x => x.vencimento.slice(0, 7) <= HOJE.slice(0, 7)), x => x.valor))}</b></div></div>
+  ${ab.length ? `<h2>Em aberto por forma de pagamento</h2><div class="fchips">${chips(porForma)}</div>
+  <h2>Quanto cobrir em cada mês</h2>${Object.keys(g).sort().map(k => {
+    const [a, m] = k.split('-'), it = g[k], po = {};
+    it.forEach(x => po[fm(x)] = (po[fm(x)] || 0) + Number(x.valor));
+    return `<details class="card" ${k <= HOJE.slice(0, 7) ? 'open' : ''}><summary class="row"><b style="text-transform:capitalize">${new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</b><span><b>${R(sum(it, x => x.valor))}</b> ${k < HOJE.slice(0, 7) ? tag('Atrasado') : ''}</span></summary><div class="fchips">${chips(po)}</div>${it.map(contaRow).join('')}</details>`;
+  }).join('')}` : '<p class="mut">Nenhuma conta em aberto.</p>'}
+  ${pg.length ? `<details class="card"><summary class="row"><b>Contas pagas (${pg.length})</b><span>${R(sum(pg, x => x.valor))}</span></summary>${pg.map(contaRow).join('')}</details>` : ''}`;
 }
 function formConta() {
-  modal(`<h2>Nova conta a pagar</h2><form onsubmit="salvaConta(event)">
-  <input class="inp" name="descricao" placeholder="Descrição (ex: fornecedor, aluguel)" required>
-  <input class="inp" name="valor" type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="Valor (R$)" required>
-  <label><small>Vencimento</small><input class="inp" name="vencimento" type="date" value="${HOJE}" required></label>
+  modal(`<h2>Nova conta a pagar</h2><form id="cf" onsubmit="salvaConta(event)">
+  <input class="inp" name="descricao" placeholder="Descrição (ex: fornecedor, estoque, aluguel)" required>
+  <input class="inp" name="valor" type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="Valor total (R$)" oninput="ctPrev()" required>
+  <small>Como você pagou / vai pagar?</small>
+  <div class="tiles">${CTILES.map(([v, t, n]) => `<label class="tile"><input type="radio" name="fm" value="${v}" data-t="${t}" onchange="ctForma()">${ICOF(v, t)}<span>${n}</span></label>`).join('')}</div>
+  <input class="inp" id="ctn" name="fnome" placeholder="Nome (ex: Inter, Itaú, boleto)" hidden>
+  <div id="ctp" hidden><label><small>Nº de parcelas no cartão</small><input class="inp" name="np" type="number" min="1" max="24" value="1" oninput="ctPrev()"></label><small id="ctpv" class="blk"></small></div>
+  <label><small id="ctvl">Vencimento / data do pagamento</small><input class="inp" name="vencimento" type="date" value="${HOJE}" required></label>
+  <label class="card row" id="ctj"><span>✅ Já paguei</span><input type="checkbox" name="jap"></label>
   <button class="btn w">Salvar conta</button></form>`);
+}
+function ctForma() {
+  const r = document.querySelector('[name=fm]:checked'); if (!r) return;
+  const f = r.form, cartao = r.dataset.t == 'cartao';
+  $('#ctn').hidden = !r.value.startsWith('Outro'); $('#ctp').hidden = !cartao; $('#ctj').hidden = cartao;
+  $('#ctvl').textContent = cartao ? 'Vencimento da 1ª parcela (fatura)' : 'Data do pagamento';
+  if (!cartao) f.np.value = 1;
+  f.jap.checked = !cartao; ctPrev();
+}
+function ctPrev() {
+  const f = $('#cf'); if (!f) return;
+  const v = +f.valor.value || 0, n = Math.max(1, Math.min(24, +f.np.value || 1));
+  $('#ctpv').textContent = v > 0 && n > 1 ? `${n}× de ${R(v / n)}, uma por mês` : '';
 }
 async function salvaConta(e) {
   e.preventDefault();
-  const d = Object.fromEntries(new FormData(e.target)); d.valor = +d.valor;
-  const { error } = await db.from('contas').insert(d);
+  const f = e.target, r = f.querySelector('[name=fm]:checked');
+  if (!r) return toast('Escolha como foi pago: cartão, Pix, dinheiro...');
+  const cartao = r.dataset.t == 'cartao', nome = r.value.startsWith('Outro') ? (f.fnome.value.trim() || r.value) : r.value;
+  const total = +f.valor.value, n = cartao ? Math.max(1, Math.min(24, +f.np.value || 1)) : 1, base = Math.floor(total / n * 100) / 100;
+  const grupo = window.crypto && crypto.randomUUID ? crypto.randomUUID() : null, jap = !cartao && f.jap.checked;
+  const linhas = [...Array(n)].map((_, k) => ({ descricao: f.descricao.value.trim(), valor: k == n - 1 ? +(total - base * (n - 1)).toFixed(2) : base, vencimento: addMes(f.vencimento.value, k), forma: nome, tipo: cartao ? 'cartao' : 'vista', parcela_num: k + 1, parcelas_total: n, grupo, pago: jap, ...(jap ? { pago_em: new Date(f.vencimento.value + 'T12:00:00').toISOString() } : {}) }));
+  const { error } = await db.from('contas').insert(linhas);
   if (error) return toast('Erro: ' + error.message);
-  fecha(); await load(); render(); toast('Conta salva');
+  fecha(); await load(); render(); toast(n > 1 ? `Conta salva em ${n} parcelas` : 'Conta salva');
+}
+async function excluiConta(id) {
+  const x = S.ct.find(c => c.id == id); if (!x) return;
+  let q = db.from('contas').delete().eq('id', id);
+  if (x.grupo && x.parcelas_total > 1) {
+    if (confirm(`Essa compra tem ${x.parcelas_total} parcelas. Excluir TODAS as parcelas?\n\nOK = todas · Cancelar = escolher só esta`)) q = db.from('contas').delete().eq('grupo', x.grupo);
+    else if (!confirm('Excluir só esta parcela?')) return;
+  } else if (!confirm('Excluir esta conta? Não dá para desfazer.')) return;
+  const { error } = await q;
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); toast('Excluído');
 }
 async function pagaConta(id) {
   const { error } = await db.from('contas').update({ pago: true, pago_em: new Date().toISOString() }).eq('id', id);
