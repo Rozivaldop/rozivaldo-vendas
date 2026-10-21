@@ -103,3 +103,14 @@ aside .mic{margin-left:auto;color:#ec4899}aside .mic .ic{width:16px;height:16px}
 .hj .em{font-size:1.5rem}.hj small{display:block}.hj b{display:block;font-size:1.05rem}
 .fxg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.fxg b{font-size:1.05rem}
 .cob.ok{opacity:.7;border-color:#14532d}.cob textarea{margin-top:8px}.cob .row{margin-top:8px}
+
+/* ===== Venda com foto ===== */
+.vpg{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding:2px}
+.vpt{position:relative;background:#101826;border:2px solid var(--line);border-radius:10px;padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0;-webkit-tap-highlight-color:transparent}
+.vpt:active{transform:scale(.97)}.vpt.on{border-color:var(--blue);background:#16233d}
+.vpt img,.vpt .pimg{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#1b2740;display:flex;align-items:center;justify-content:center;font-size:1.8rem}
+.vpt .pn{font-size:.74rem;min-height:2.4em;line-height:1.2}.vpt .pp{font-size:.85rem}
+.vpb{position:absolute;top:8px;right:8px;background:var(--blue);color:#fff;border-radius:99px;font-size:.75rem;font-weight:800;padding:2px 9px;box-shadow:0 1px 6px #0008}
+.vpm{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;border:0;background:#000b;color:#fff;font-size:1.1rem;line-height:1;cursor:pointer}
+.vpcat{background:#0e1626;border:1px solid var(--line);color:var(--tx);border-radius:99px;padding:6px 12px;font:inherit;font-size:.8rem;cursor:pointer}
+.vpcat.on{background:var(--blue);border-color:var(--blue)}

@@ -44,6 +44,45 @@ function fecha() { $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== VENDA COM FOTO DO PRODUTO ===== */
+let VP = { q: '', cat: 'Todos' };
+const vitrineVenda = () => S.pr.length ? `<div class="card"><small>📸 Toque na foto para adicionar (toque de novo para somar mais um)</small>
+  <input class="inp" id="vpq" placeholder="Buscar produto ou código SKU" oninput="VP.q=this.value;vpDesenha()" onkeydown="if(event.key=='Enter')event.preventDefault()">
+  <div class="fchips" id="vpc"></div><div class="vpg" id="vpg"></div></div>` : '';
+function vpBadges() {
+  const g = $('#vpg'); if (!g) return;
+  const m = {};
+  document.querySelectorAll('#its .it').forEach(r => { const id = r.querySelector('select').value; if (id) m[id] = (m[id] || 0) + (+r.querySelector('[name=quantidade]').value || 0); });
+  g.querySelectorAll('.vpt').forEach(t => { const q = m[t.dataset.pid] || 0, b = t.querySelector('.vpb'), n = t.querySelector('.vpm'); t.classList.toggle('on', q > 0); b.textContent = '×' + q; b.hidden = !q; n.hidden = !q; });
+}
+function vpDesenha() {
+  const c = $('#vpc'), g = $('#vpg'); if (!c || !g) return;
+  const cats = ['Todos', ...CATS.filter(k => S.pr.some(p => p.categoria == k))], q = nz(VP.q);
+  c.innerHTML = cats.map(k => `<button type="button" class="vpcat ${VP.cat == k ? 'on' : ''}" onclick="VP.cat='${k}';vpDesenha()">${k}</button>`).join('');
+  const l = S.pr.filter(p => (VP.cat == 'Todos' || p.categoria == VP.cat) && (!q || nz(p.nome + ' ' + skuDe(p)).includes(q)));
+  g.innerHTML = l.map(p => `<div class="vpt" data-pid="${p.id}" onclick="vpAdd('${p.id}')">${imgProd(p)}<b class="pn">${esc(p.nome)}</b><b class="pp">${R(p.preco)}</b><span class="vpb" hidden></span><button type="button" class="vpm" hidden onclick="event.stopPropagation();vpMenos('${p.id}')">−</button></div>`).join('') || '<small>Nenhum produto encontrado.</small>';
+  vpBadges();
+}
+let vpUlt = { id: '', t: 0 };
+function vpAdd(pid) {
+  const p = S.pr.find(x => x.id == pid); if (!p) return;
+  if (vpUlt.id == pid && Date.now() - vpUlt.t < 150) return;
+  vpUlt = { id: pid, t: Date.now() };
+  const rows = [...document.querySelectorAll('#its .it')], ex = rows.find(r => r.querySelector('select').value == pid);
+  if (ex) { const q = ex.querySelector('[name=quantidade]'); q.value = (+q.value || 0) + 1; }
+  else {
+    let r = rows.length == 1 && !rows[0].querySelector('[name=produto]').value && !rows[0].querySelector('[name=preco]').value ? rows[0] : null;
+    if (!r) { addItem(); r = $('#its').lastElementChild; }
+    const sel = r.querySelector('select'); sel.value = pid; pick(sel);
+  }
+  calc();
+}
+function vpMenos(pid) {
+  const r = [...document.querySelectorAll('#its .it')].find(x => x.querySelector('select').value == pid); if (!r) return;
+  const q = r.querySelector('[name=quantidade]'), n = (+q.value || 1) - 1;
+  if (n > 0) q.value = n; else { r.remove(); if (!document.querySelector('#its .it')) addItem(); }
+  calc();
+}
 /* ===== LUCRO REAL ===== */
 const custoDe = t => {
   if (t.custo_unit != null) return Number(t.custo_unit);
@@ -437,6 +476,7 @@ function venda() {
   <small id="fb" class="blk"></small></div>`}
   <form onsubmit="salvaVenda(event)">
   <select class="inp" name="cliente_id" required ${EDIT ? 'disabled' : ''}><option value="">Escolha o cliente</option>${S.c.map(c => `<option value="${c.id}" ${c.id == curId ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+  ${vitrineVenda()}
   <div id="its"></div>
   <button type="button" class="btn alt" onclick="addItem()">+ Adicionar item</button>
   <div class="card row"><span>Total da venda</span><b id="tot">R$ 0,00</b></div>
@@ -467,7 +507,7 @@ function plano(resto, n, venc) {
 function calc() {
   let t = 0;
   document.querySelectorAll('.it').forEach(r => { const x = r.querySelector('[name=quantidade]').value * r.querySelector('[name=preco]').value; t += x; r.querySelector('.sub').textContent = 'Subtotal ' + R(x); });
-  $('#tot').textContent = R(t);
+  $('#tot').textContent = R(t); vpBadges();
   const f = $('#view form');
   if (f && f.pago && $('#prev')) {
     const resto = t - (+f.pago.value || 0), n = Math.max(1, Math.min(24, +f.np.value || 1));
@@ -479,7 +519,17 @@ function calc() {
   }
   return t;
 }
+let SALVANDO = false;
 async function salvaVenda(e) {
+  e.preventDefault();
+  if (SALVANDO) return;
+  SALVANDO = true;
+  const b = e.target.querySelector('button:not([type=button])'), tx = b && b.textContent;
+  if (b) { b.disabled = true; b.textContent = 'Salvando…'; }
+  try { await salvaVendaInterna(e); }
+  finally { SALVANDO = false; if (b && b.isConnected) { b.disabled = false; b.textContent = tx; } }
+}
+async function salvaVendaInterna(e) {
   e.preventDefault();
   const f = e.target, q = (r, n) => r.querySelector(`[name=${n}]`).value;
   const itens = [...document.querySelectorAll('.it')].map(r => ({ produto: q(r, 'produto'), categoria: q(r, 'categoria'), quantidade: +q(r, 'quantidade'), preco_unit: +q(r, 'preco'), custo_unit: q(r, 'custo') === '' ? null : +q(r, 'custo') }));
@@ -487,6 +537,8 @@ async function salvaVenda(e) {
   const total = calc(), pago = +f.pago.value || 0, cid = f.cliente_id.value;
   if (pago > total) return toast('O valor pago é maior que o total da venda');
   if (EDIT) return salvaEdicao(f, itens, total, pago);
+  const rec = S.v.find(x => x.cliente_id == cid && Math.abs(x.total - total) < 0.005 && Date.now() - new Date(x.data) < 180000);
+  if (rec && !confirm('Já existe uma venda de ' + R(total) + ' para este cliente registrada há poucos minutos. Registrar outra igual mesmo assim?')) return;
   const { data: v, error } = await db.from('vendas').insert({ cliente_id: cid, total, entregue: !f.pend.checked }).select().single();
   if (error) return toast('Erro: ' + error.message);
   const r1 = await db.from('itens_venda').insert(itens.map(x => ({ ...x, venda_id: v.id })));
@@ -898,7 +950,7 @@ function fillRow(row, i) {
   if (i.custo != null) row.querySelector('[name=custo]').value = Number(i.custo).toFixed(2);
 }
 function iniciaVenda() {
-  PKEY = ''; PDATES = [];
+  PKEY = ''; PDATES = []; VP = { q: '', cat: 'Todos' }; vpDesenha();
   if (EDIT) { AUTO = null; return carregaEdicao(); }
   if (PRE) { PEDIDO = PRE.pedido; PRE.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); }); PRE = null; toast(PEDIDO ? 'Pedido carregado. Confira e registre a venda.' : 'Produto adicionado. Escolha o cliente e registre a venda.'); }
   else { PEDIDO = null; addItem(); }
