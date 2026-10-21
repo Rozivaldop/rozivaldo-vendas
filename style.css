@@ -114,3 +114,7 @@ aside .mic{margin-left:auto;color:#ec4899}aside .mic .ic{width:16px;height:16px}
 .vpm{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;border:0;background:#000b;color:#fff;font-size:1.1rem;line-height:1;cursor:pointer}
 .vpcat{background:#0e1626;border:1px solid var(--line);color:var(--tx);border-radius:99px;padding:6px 12px;font:inherit;font-size:.8rem;cursor:pointer}
 .vpcat.on{background:var(--blue);border-color:var(--blue)}
+
+/* Início: blocos inferiores */
+.dois{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.dois .card{margin:8px 0}
+@media(max-width:820px){.dois{grid-template-columns:1fr}}

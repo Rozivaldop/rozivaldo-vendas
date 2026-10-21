@@ -44,6 +44,41 @@ function fecha() { $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== INÍCIO: mais vendidos, últimas vendas, clientes para reativar ===== */
+const diasDesde = d => Math.floor((Date.now() - new Date(d)) / 864e5);
+function maisVendidos() {
+  const m = mes(new Date());
+  let vs = S.v.filter(v => mes(v.data) == m), tit = 'Mais vendidos do mês';
+  if (!vs.length) { vs = S.v; tit = 'Mais vendidos'; }
+  const o = {};
+  vs.flatMap(v => v.itens_venda || []).forEach(t => { const k = nz(t.produto); o[k] = o[k] || { nome: t.produto, q: 0 }; o[k].q += t.quantidade; });
+  const l = Object.values(o).sort((a, b) => b.q - a.q).slice(0, 6).map(x => ({ ...x, p: S.pr.find(p => nz(p.nome) == nz(x.nome)) }));
+  return `<div class="card"><h2 class="up">🔥 ${tit}</h2>${l.length ? `<div class="rgrid">${l.map(x => `<div class="mini">${imgProd(x.p || {})}<div class="grow"><b class="pn">${esc(x.nome)}</b><small class="blk">${x.q} ${x.q == 1 ? 'unidade vendida' : 'unidades vendidas'}</small>${x.p ? `<button class="vend" onclick="vender('${x.p.id}')">VENDER <span>+</span></button>` : ''}</div></div>`).join('')}</div>` : '<p class="mut">Os produtos mais vendidos aparecem aqui depois das primeiras vendas.</p>'}</div>`;
+}
+function ultimasVendas() {
+  const l = [...S.v].sort((a, b) => new Date(b.data) - new Date(a.data)).slice(0, 6);
+  return `<div class="card"><h2 class="up">🧾 Últimas vendas</h2>${l.map(v => { const c = S.c.find(x => x.id == v.cliente_id) || {}, n = (v.itens_venda || []).reduce((a, t) => a + t.quantidade, 0);
+    return `<div class="item" onclick="go('ficha','${v.cliente_id}')"><span><b>${esc(c.nome || '—')}</b><small class="blk">${new Date(v.data).toLocaleDateString('pt-BR')} · ${n} ${n == 1 ? 'item' : 'itens'}</small></span><span style="text-align:right"><b>${R(v.total)}</b><br>${tag(stVenda(v))}</span></div>`; }).join('') || '<p class="mut">Nenhuma venda registrada ainda.</p>'}
+  ${l.length ? `<button class="lnk" onclick="go('historico')">Ver histórico completo</button>` : ''}</div>`;
+}
+const reaLer = () => { try { return JSON.parse(localStorage.getItem('rs_rea') || '{}'); } catch (e) { return {}; } };
+function clientesReativar() {
+  const rea = reaLer(), devedores = new Set(todasParc().filter(x => x.st == 'Atrasada').map(x => x.c.id));
+  const l = S.c.map(c => { const vs = S.v.filter(v => v.cliente_id == c.id); return { c, n: vs.length, ult: vs.length ? vs.map(v => v.data).sort().pop() : null, tot: sum(vs, v => v.total) }; })
+    .filter(x => x.ult && diasDesde(x.ult) >= 60 && !devedores.has(x.c.id) && !(rea[x.c.id] && diasDesde(rea[x.c.id]) < 30))
+    .sort((a, b) => b.tot - a.tot).slice(0, 5);
+  return `<div class="card"><h2 class="up">💜 Clientes para reativar</h2><small>Sem comprar há 60 dias ou mais (sem parcelas atrasadas)</small>
+  ${l.map(x => `<div class="item" style="cursor:default"><span><b>${esc(x.c.nome)}</b><small class="blk">última compra há ${diasDesde(x.ult)} dias · ${R(x.tot)} em compras</small></span><button class="btn" onclick="reativar('${x.c.id}')">WhatsApp</button></div>`).join('') || '<p class="mut">Ninguém para reativar agora. 🎉</p>'}</div>`;
+}
+function reativar(id) {
+  const c = S.c.find(x => x.id == id); if (!c) return;
+  if (!c.telefone) return toast('Cadastre o WhatsApp deste cliente primeiro');
+  const txt = `Olá, ${c.nome}! Tudo bem? 😊\n\nFaz um tempinho que não nos vemos aqui na Rozivaldo Store e senti sua falta! Chegaram novidades que combinam com você. Quer dar uma olhada?\n\nConfira nosso catálogo: ${LINK()}\n\nQualquer coisa é só chamar! 💜`;
+  window.open(zapLink(c, txt), '_blank');
+  const r = reaLer(); r[id] = new Date().toISOString();
+  try { localStorage.setItem('rs_rea', JSON.stringify(r)); } catch (e) {}
+  render(); toast('Mensagem aberta no WhatsApp');
+}
 /* ===== VENDA COM FOTO DO PRODUTO ===== */
 let VP = { q: '', cat: 'Todos' };
 const vitrineVenda = () => S.pr.length ? `<div class="card"><small>📸 Toque na foto para adicionar (toque de novo para somar mais um)</small>
@@ -324,14 +359,13 @@ const cardProd = p => `<div class="pc">${imgProd(p)}<b class="pn">${esc(p.nome)}
 const cardMini = p => `<div class="mini">${imgProd(p)}<div class="grow"><b class="pn">${esc(p.nome)}</b><b class="pp blk">${R(p.preco)}</b><button class="vend" onclick="vender('${p.id}')">VENDER <span>+</span></button></div></div>`;
 
 function inicio() {
-  const rec = [...S.pr].sort((a, b) => new Date(b.criado_em || 0) - new Date(a.criado_em || 0)).slice(0, 6);
   return `${saudacao('Bem-vindo ao seu Dashboard.')}
   ${hojePainel()}
   <div class="card"><h2>Sua Vitrine de Produtos - Clique para vender</h2>
   ${S.pr.length ? `<div class="car"><button class="arw l" onclick="rola(-1)">‹</button><div id="vit">${S.pr.map(cardProd).join('')}</div><button class="arw r" onclick="rola(1)">›</button></div><div id="dots"></div>`
       : '<p class="mut">Nenhum produto cadastrado ainda. <button class="lnk" onclick="go(\'catalogo\');formProd()">Cadastrar o primeiro produto</button></p>'}</div>
-  <div class="card"><h2 class="up">Produtos recentes adicionados</h2>
-  ${rec.length ? `<div class="rgrid">${rec.map(cardMini).join('')}</div>` : '<p class="mut">Os produtos que você cadastrar aparecem aqui.</p>'}</div>`;
+  ${maisVendidos()}
+  <div class="dois">${ultimasVendas()}${clientesReativar()}</div>`;
 }
 function rola(d) { const v = $('#vit'); v.scrollBy({ left: d * v.clientWidth * 0.9, behavior: 'smooth' }); }
 function vitPag(k) { const v = $('#vit'); v.scrollTo({ left: k * v.clientWidth, behavior: 'smooth' }); }
