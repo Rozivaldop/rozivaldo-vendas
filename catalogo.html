@@ -30,12 +30,18 @@ header h1{margin:0;font-size:1.4rem;font-weight:800}header small{color:var(--mut
 .inp{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#0e1626;color:var(--tx);margin:5px 0}
 .row{display:flex;justify-content:space-between;gap:8px;padding:6px 0}
 .mut{color:var(--mut);text-align:center;padding:30px 14px}
+.srch{padding:4px 14px;max-width:1100px;margin:auto}.srch .inp{margin:6px 0}
+.ask-link{color:#7db0ff;font-size:.8rem;text-decoration:none;display:inline-block;margin-top:8px}
+.ask{max-width:1100px;margin:22px 14px 0;padding:18px;text-align:center;background:var(--pan);border:1px dashed #3a4a6b;border-radius:14px}
+.ask p,.nota{color:var(--mut);margin:6px 0 12px;font-size:.88rem}.ask .btn{padding:11px 18px}
 </style>
 </head>
 <body>
-<header><h1>ROZIVALDO STORE</h1><small>MODA · LINGERIE · SEX SHOP</small></header>
+<header><h1>ROZIVALDO STORE</h1><small>MODA · LINGERIE · SEX SHOP</small><br><a class="ask-link" href="#" onclick="abrirSug();return false">💡 Não achou o que queria? Peça aqui</a></header>
+<div class="srch"><input id="q" class="inp" type="search" placeholder="🔎 Buscar produto ou código" oninput="Q=this.value;desenha()"></div>
 <div class="chips" id="chips"></div>
 <div class="grid" id="grid"></div>
+<div class="ask" id="ask"><b>Não encontrou o que procura?</b><p>Conte pra gente o que você quer e vamos tentar trazer! 💜</p><button class="btn" onclick="abrirSug(Q)">💡 Pedir um produto</button></div>
 <div class="bar" id="bar" hidden><div><small id="bn"></small><b id="bt" style="display:block;font-size:1.1rem"></b></div><button class="btn" onclick="abrir()">Finalizar pedido</button></div>
 <div id="modal"></div>
 <script src="config.js"></script>
@@ -46,7 +52,8 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const R = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let P = [], cart = {}, cat = 'Todos';
+let P = [], cart = {}, cat = 'Todos', Q = '';
+const nz = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const sku = p => p.sku || 'RS' + String(p.id).replace(/-/g, '').slice(0, 8).toUpperCase();
 
 async function init() {
@@ -57,10 +64,10 @@ async function init() {
 function desenha() {
   const cats = ['Todos', ...new Set(P.map(p => p.categoria))];
   $('#chips').innerHTML = cats.map(k => `<button class="${k == cat ? 'on' : ''}" onclick="cat='${k}';desenha()">${k}</button>`).join('');
-  const l = P.filter(p => cat == 'Todos' || p.categoria == cat);
+  const l = P.filter(p => (cat == 'Todos' || p.categoria == cat) && (!Q.trim() || nz(p.nome + ' ' + sku(p)).includes(nz(Q.trim()))));
   $('#grid').innerHTML = l.map(p => `<div class="pc">${p.foto ? `<img src="${p.foto}" alt="">` : '<div class="pimg">🛍️</div>'}
     <b class="pn">${esc(p.nome)}</b><b class="pp">${R(p.preco)}</b><small>SKU: ${esc(sku(p))}</small>
-    ${cart[p.id] ? `<div class="qt"><button onclick="mud('${p.id}',-1)">−</button><b>${cart[p.id]}</b><button onclick="mud('${p.id}',1)">+</button></div>` : `<button class="add" onclick="mud('${p.id}',1)">ADICIONAR +</button>`}</div>`).join('') || '<p class="mut">Nenhum produto disponível no momento.</p>';
+    ${cart[p.id] ? `<div class="qt"><button onclick="mud('${p.id}',-1)">−</button><b>${cart[p.id]}</b><button onclick="mud('${p.id}',1)">+</button></div>` : `<button class="add" onclick="mud('${p.id}',1)">ADICIONAR +</button>`}</div>`).join('') || `<div class="mut">${Q.trim() ? 'Nenhum produto encontrado para “' + esc(Q.trim()) + '”.' : 'Nenhum produto disponível no momento.'}<br><br><button class="btn" onclick="abrirSug(Q)">💡 Pedir ${Q.trim() ? 'este produto' : 'um produto'}</button></div>`;
   const n = Object.values(cart).reduce((a, b) => a + b, 0), t = total();
   $('#bar').hidden = !n; $('#bn').textContent = n + (n == 1 ? ' item' : ' itens'); $('#bt').textContent = R(t);
 }
@@ -87,6 +94,37 @@ async function envia(e) {
   }
   cart = {}; desenha();
   $('#modal').innerHTML = `<div class="bk"><div class="sheet" style="text-align:center"><h2>Pedido enviado! 💜</h2><p class="mut">Recebemos seu pedido e vamos te chamar no WhatsApp para combinar o pagamento e a entrega.</p><button class="btn" onclick="fecha()">Voltar ao catálogo</button></div></div>`;
+}
+
+const CATS = ['Masculino', 'Feminino', 'Lingerie', 'Sexshop'];
+function abrirSug(pre) {
+  $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet"><h2 style="margin-top:0">💡 Pedir um produto</h2>
+  <p class="nota">Não achou o que queria? Conte pra gente e vamos tentar trazer!</p>
+  <form onsubmit="enviaSug(event)">
+  <input class="inp" name="produto" maxlength="120" placeholder="O que você procura? (ex: short jeans, perfume...)" value="${esc(pre || '')}" required>
+  <select class="inp" name="categoria"><option value="">Categoria (opcional)</option>${CATS.map(k => `<option>${k}</option>`).join('')}</select>
+  <textarea class="inp" name="detalhes" rows="3" maxlength="500" placeholder="Detalhes: cor, tamanho, marca... (opcional)"></textarea>
+  <input class="inp" name="nome" maxlength="80" placeholder="Seu nome (opcional)">
+  <input class="inp" name="telefone" type="tel" maxlength="20" placeholder="Seu WhatsApp para avisarmos quando chegar (opcional)">
+  <input name="site" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
+  <button class="btn" style="width:100%">Enviar pedido</button>
+  <p class="nota" style="font-size:.72rem">Usamos seu contato apenas para avisar sobre este pedido.</p></form></div></div>`;
+}
+async function enviaSug(e) {
+  e.preventDefault();
+  const f = e.target, b = f.querySelector('button');
+  if (f.site.value) return sugOk();                       // robô: finge sucesso
+  let h = []; try { h = JSON.parse(localStorage.getItem('rs_sug') || '[]').filter(t => Date.now() - t < 3600000); } catch (x) {}
+  if (h.length >= 5) return alert('Você já enviou vários pedidos. Tente novamente mais tarde, obrigada! 💜');
+  b.disabled = true; b.textContent = 'Enviando…';
+  const v = n => f[n].value.trim() || null;
+  const { error } = await db.from('sugestoes').insert({ produto: v('produto'), categoria: v('categoria'), detalhes: v('detalhes'), nome: v('nome'), telefone: v('telefone'), status: 'nova' });
+  if (error) { b.disabled = false; b.textContent = 'Enviar pedido'; return alert('Não foi possível enviar agora. Tente de novo em instantes.'); }
+  try { localStorage.setItem('rs_sug', JSON.stringify([...h, Date.now()])); } catch (x) {}
+  sugOk(!!v('telefone'));
+}
+function sugOk(tel) {
+  $('#modal').innerHTML = `<div class="bk"><div class="sheet" style="text-align:center"><h2>Pedido enviado! 💜</h2><p class="nota">Obrigada! Anotamos o seu pedido${tel ? ' e vamos te avisar pelo WhatsApp quando chegar' : ''}. Sua opinião ajuda a escolher as novidades da loja.</p><button class="btn" onclick="fecha()">Voltar ao catálogo</button></div></div>`;
 }
 init();
 </script>

@@ -9,21 +9,22 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [] }, cur = 'inicio', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], sg: [] }, cur = 'inicio', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
 async function load() {
-  const [c, v, p, pr, pa, ct, pd] = await Promise.all([
+  const [c, v, p, pr, pa, ct, pd, sg] = await Promise.all([
     db.from('clientes').select('*').order('nome'),
     db.from('vendas').select('*, itens_venda(*)').order('data', { ascending: false }),
     db.from('pagamentos').select('*').order('criado_em', { ascending: false }),
     db.from('produtos').select('*').order('nome'),
     db.from('parcelas').select('*'),
     db.from('contas').select('*'),
-    db.from('pedidos').select('*').eq('status', 'novo').order('criado_em', { ascending: false })
+    db.from('pedidos').select('*').eq('status', 'novo').order('criado_em', { ascending: false }),
+    db.from('sugestoes').select('*').order('criado_em', { ascending: false })
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pd: pd.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pd: pd.data || [], sg: sg.data || [] };
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
@@ -33,17 +34,82 @@ function info(id) {
 function go(v, id, ed) { $('#side').classList.remove('open'); cur = v; curId = id || null; EDIT = ed || null; render(); window.scrollTo(0, 0); }
 function render() {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav == cur || (cur == 'ficha' && b.dataset.nav == 'clientes')));
-  $('#view').innerHTML = { inicio, vitrine, cobranca, fluxo, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
+  $('#view').innerHTML = { inicio, vitrine, procuras, cobranca, fluxo, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
   if (cur == 'inicio') vitInit();
   if (cur == 'vitrine') vtxt();
   if (cur == 'venda') iniciaVenda();
-  const pb = $('#pbadge'); pb.textContent = S.pd.length || ''; pb.hidden = !S.pd.length;
+  const nn = sgNovas().length, tt = S.pd.length + nn, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; }
 }
 function modal(h) { $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet">${h}</div></div>`; }
-function fecha() { $('#modal').innerHTML = ''; }
+function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== PROCURAS DOS CLIENTES (produtos que não achou no catálogo) ===== */
+let PR = { f: 'abertas' }, PREPROD = null;
+const sgKey = t => nz(String(t || '')).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map(w => w.length > 3 ? w.replace(/s$/, '') : w).join(' ');
+const sgChave = x => sgKey(x.produto) || x.id;
+const sgVisto = () => { try { return new Date(localStorage.getItem('rs_sg_visto') || 0); } catch (e) { return new Date(0); } };
+const sgMarcaVisto = () => { try { localStorage.setItem('rs_sg_visto', new Date().toISOString()); } catch (e) {} };
+const sgNovas = () => (S.sg || []).filter(x => x.status == 'nova' && new Date(x.criado_em) > sgVisto());
+function sgResumo() {
+  const o = {};
+  sgNovas().forEach(x => { const k = sgChave(x); o[k] = o[k] || { n: 0, nome: x.produto.trim() }; o[k].n++; });
+  return Object.values(o).sort((a, b) => b.n - a.n).slice(0, 3).map(x => `${x.nome} (${x.n})`).join(', ');
+}
+function sgGrupos(f) {
+  const ok = { abertas: x => x.status == 'nova', atendidas: x => x.status == 'atendida' || x.status == 'avisada', descartadas: x => x.status == 'descartada' }[f], g = {};
+  (S.sg || []).filter(ok).forEach(x => { const k = sgChave(x); (g[k] = g[k] || { k, l: [] }).l.push(x); });
+  const top = o => Object.entries(o).sort((a, b) => b[1] - a[1]).map(e => e[0])[0] || '';
+  return Object.values(g).map(o => {
+    const nomes = {}, cats = {};
+    o.l.forEach(x => { const n = x.produto.trim(); nomes[n] = (nomes[n] || 0) + 1; if (x.categoria) cats[x.categoria] = (cats[x.categoria] || 0) + 1; });
+    return { ...o, nome: top(nomes), cat: top(cats), n: o.l.length, ult: o.l[0].criado_em };
+  }).sort((a, b) => b.n - a.n || new Date(b.ult) - new Date(a.ult));
+}
+function sgCard(x, i, max, antes) {
+  const f = PR.f, det = [...new Set(x.l.map(p => (p.detalhes || '').trim()).filter(Boolean))].slice(0, 3);
+  const acao = p => !p.telefone ? '' : f == 'abertas' ? `<button class="lnk" onclick="sgZap('${p.id}')">Responder</button>` : f == 'atendidas' ? (p.status == 'avisada' ? '<small class="grn">✓ avisada</small>' : `<button class="btn" onclick="sgAvisar('${p.id}')">Avisar que chegou</button>`) : '';
+  return `<div class="card"><div class="row"><b>${i + 1}º · ${esc(x.nome)}</b><em class="tag ${x.n >= 3 ? 'bad' : 'wait'}">${x.n} ${x.n == 1 ? 'pedido' : 'pedidos'}</em></div>
+  <div class="barra"><i style="width:${Math.max(6, x.n / max * 100)}%"></i></div>
+  <small class="blk">${x.cat ? IC[x.cat] + ' ' + x.cat + ' · ' : ''}último pedido em ${new Date(x.ult).toLocaleDateString('pt-BR')}</small>
+  ${det.map(d => `<small class="blk">💬 “${esc(d)}”</small>`).join('')}
+  <details><summary class="lnk">Quem pediu (${x.l.length})</summary>${x.l.map(p => `<div class="row" style="margin-top:6px"><small>${esc(p.nome || 'Sem nome')}${p.telefone ? ' · ' + esc(p.telefone) : ''}${p.status == 'nova' && new Date(p.criado_em) > antes ? ' <em class="tag wait">novo</em>' : ''}</small>${acao(p)}</div>`).join('')}</details>
+  <div class="row" style="margin-top:8px">${f == 'abertas' ? `<button class="btn" onclick="sgCadastrar('${x.k}')">Cadastrar produto</button><button class="btn alt" onclick="sgStatus('${x.k}','descartada')">Descartar</button>` : `<button class="btn alt" onclick="sgStatus('${x.k}','nova')">Reabrir</button>`}</div></div>`;
+}
+function procuras() {
+  const antes = sgVisto(); sgMarcaVisto();
+  const g = sgGrupos(PR.f), max = g[0] ? g[0].n : 1, ab = sgGrupos('abertas');
+  return `<h1>Procuras dos clientes</h1><p class="mut">O que seus clientes pediram no catálogo e você ainda não tem. Os mais pedidos aparecem primeiro.</p>
+  <div class="grid"><div class="card"><small>Pedidos em aberto</small><b class="blk">${sum(ab, x => x.n)}</b></div><div class="card"><small>Produto mais pedido</small><b class="blk" style="font-size:1rem">${ab[0] ? esc(ab[0].nome) + ' (' + ab[0].n + ')' : '—'}</b></div></div>
+  <div class="row" style="justify-content:flex-start">${[['abertas', 'Em aberto'], ['atendidas', 'Atendidas'], ['descartadas', 'Descartadas']].map(([k, l]) => `<button class="btn ${PR.f == k ? '' : 'alt'}" onclick="PR.f='${k}';render()">${l}</button>`).join('')}</div>
+  ${g.map((x, i) => sgCard(x, i, max, antes)).join('') || `<p class="mut">${PR.f == 'abertas' ? 'Nenhuma procura em aberto. Quando um cliente pedir algo no catálogo, aparece aqui.' : 'Nada por aqui ainda.'}</p>`}`;
+}
+async function sgStatus(k, para) {
+  const de = { abertas: ['nova'], atendidas: ['atendida', 'avisada'], descartadas: ['descartada'] }[PR.f];
+  const ids = S.sg.filter(x => sgChave(x) == k && de.includes(x.status)).map(x => x.id);
+  const { error } = await db.from('sugestoes').update({ status: para }).in('id', ids);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); toast(para == 'descartada' ? 'Descartado' : 'Reaberto');
+}
+function sgCadastrar(k) {
+  const g = sgGrupos('abertas').find(x => x.k == k); if (!g) return;
+  go('catalogo'); PREPROD = { nome: g.nome, categoria: g.cat, sg: k }; formProd();
+}
+function sgZap(id) {
+  const p = S.sg.find(x => x.id == id); if (!p) return;
+  window.open(zapLink(p, `Olá${p.nome ? ', ' + p.nome : ''}! Aqui é da Rozivaldo Store 💜\n\nRecebi seu pedido de “${p.produto}” pelo catálogo. Vou ver como conseguir e te aviso assim que chegar!`), '_blank');
+}
+async function sgAvisar(id) {
+  const p = S.sg.find(x => x.id == id); if (!p) return;
+  window.open(zapLink(p, `Olá${p.nome ? ', ' + p.nome : ''}! Boa notícia 🎉\n\nO produto que você pediu (${p.produto}) já chegou na Rozivaldo Store! Dá uma olhada no nosso catálogo: ${LINK()}\n\nSe quiser reservar é só me chamar! 💜`), '_blank');
+  await db.from('sugestoes').update({ status: 'avisada' }).eq('id', id);
+  await load(); render();
+}
+function avisos() {
+  const it = hojeItens();
+  modal(`<h2>🔔 Notificações</h2>${it.length ? it.map(([i, t, v, a, c]) => `<button class="hj ${c}" style="width:100%;margin-top:8px" onclick="fecha();${a}"><span class="em">${i}</span><span><small>${t}</small><b>${v}</b></span></button>`).join('') : '<p class="mut">Sem novidades por agora. ✅</p>'}`);
+}
 /* ===== INÍCIO: mais vendidos, últimas vendas, clientes para reativar ===== */
 const diasDesde = d => Math.floor((Date.now() - new Date(d)) / 864e5);
 function maisVendidos() {
@@ -199,11 +265,12 @@ function fluxo() {
   <small class="blk">A receber considera só as parcelas já cadastradas (vendas a prazo); novas vendas ainda não entram na projeção.</small>`;
 }
 /* ===== PAINEL HOJE + COBRANÇA EM FILA ===== */
-function hojePainel() {
+function hojeItens() {
   const pcs = todasParc().filter(x => x.falta > 0.005), atr = pcs.filter(x => x.vencimento < HOJE), hj = pcs.filter(x => x.vencimento == HOJE);
   const lim = dia2(new Date(Date.now() + 7 * 864e5)), ct = S.ct.filter(x => !x.pago && x.vencimento <= lim), ent = S.v.filter(v => v.entregue === false);
   const ap = fluxoDados(3).meses.find(m => m.ac < -0.005);
   const it = [
+    sgNovas().length && ['🔎', 'Clientes procurando produtos que você não tem', `${sgNovas().length} novos · ${sgResumo()}`, "go('procuras')", 'warn'],
     atr.length && ['🔴', 'Parcelas atrasadas', `${atr.length} · ${R(sum(atr, x => x.falta))}`, "COB.f='atrasadas';go('cobranca')", 'bad'],
     hj.length && ['📅', 'Vencem hoje', `${hj.length} · ${R(sum(hj, x => x.falta))}`, "COB.f='hoje';go('cobranca')", 'warn'],
     ent.length && ['🚚', 'Entregas pendentes', String(ent.length), "H.st='Entrega pendente';go('historico')", ''],
@@ -211,6 +278,10 @@ function hojePainel() {
     ct.length && ['💸', 'Contas a pagar (vencidas ou em 7 dias)', `${ct.length} · ${R(sum(ct, x => x.valor))}`, "go('contas')", ''],
     ap && ['⚠️', 'Caixa apertado em ' + ap.d.toLocaleDateString('pt-BR', { month: 'long' }), R(ap.ac), "go('fluxo')", 'bad']
   ].filter(Boolean);
+  return it;
+}
+function hojePainel() {
+  const it = hojeItens();
   return `<div class="card"><h2 class="up">Hoje · ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
   ${it.length ? `<div class="hoje">${it.map(([i, t, v, a, c]) => `<button class="hj ${c}" onclick="${a}"><span class="em">${i}</span><span><small>${t}</small><b>${v}</b></span></button>`).join('')}</div>` : '<small class="grn">Tudo em dia por aqui. ✅</small>'}</div>`;
 }
@@ -626,8 +697,8 @@ function catalogo() {
   ${S.pr.length ? '' : '<p class="mut">Catálogo vazio. Cadastre seus produtos para escolher na hora da venda.</p>'}`;
 }
 function formProd(id) {
-  const p = S.pr.find(x => x.id == id) || {};
-  modal(`<h2>${id ? 'Editar' : 'Novo'} produto</h2><form onsubmit="salvaProd(event,'${id || ''}')">
+  const p = S.pr.find(x => x.id == id) || (!id && PREPROD ? PREPROD : {});
+  const pp = PREPROD; modal(`<h2>${id ? 'Editar' : 'Novo'} produto</h2><form onsubmit="salvaProd(event,'${id || ''}')">
   <input class="inp" name="nome" placeholder="Nome do produto" value="${esc(p.nome)}" required>
   <input class="inp" name="sku" placeholder="Código SKU (vazio = gerar automático)" value="${esc(p.sku)}">
   <select class="inp" name="categoria">${opts(CATS)}</select>
@@ -636,15 +707,19 @@ function formProd(id) {
   <label><small>Foto (opcional)</small><input class="inp" name="foto" type="file" accept="image/*"></label>
   <label class="row"><span>Mostrar na vitrine online</span><input type="checkbox" name="vitrine" ${p.vitrine === false ? '' : 'checked'}></label>
   <button class="btn w">Salvar produto</button></form>`);
+  PREPROD = pp;
   if (p.categoria) document.querySelector('#modal [name=categoria]').value = p.categoria;
 }
 async function salvaProd(e, id) {
   e.preventDefault();
+  const pp = !id && PREPROD ? PREPROD : null;
   const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco'), custo: fd.get('custo') === '' ? null : +fd.get('custo'), vitrine: fd.get('vitrine') == 'on', sku: (fd.get('sku') || '').trim() || skuNovo(fd.get('categoria')) };
   const file = fd.get('foto'); if (file && file.size) d.foto = await redim(file);
   const { error } = id ? await db.from('produtos').update(d).eq('id', id) : await db.from('produtos').insert(d);
   if (error) return toast('Erro: ' + error.message);
-  fecha(); await load(); render(); toast('Produto salvo');
+  if (pp) { const ids = S.sg.filter(x => x.status == 'nova' && sgChave(x) == pp.sg).map(x => x.id); if (ids.length) await db.from('sugestoes').update({ status: 'atendida' }).in('id', ids); }
+  fecha(); await load();
+  if (pp) { PR.f = 'atendidas'; go('procuras'); toast('Produto cadastrado! Avise quem pediu 💜'); } else { render(); toast('Produto salvo'); }
 }
 
 function relDados() {
@@ -1079,7 +1154,7 @@ $('#lf').onsubmit = async e => {
 async function start() {
   const { data } = await db.auth.getSession();
   $('#login').hidden = !!data.session; $('#app').hidden = !data.session;
-  if (data.session) { await load(); const g = new URLSearchParams(location.search).get('go'); if (['venda', 'cobranca', 'fluxo', 'contas', 'historico', 'clientes', 'dash'].includes(g)) cur = g; render(); }
+  if (data.session) { await load(); const g = new URLSearchParams(location.search).get('go'); if (['venda', 'cobranca', 'fluxo', 'contas', 'historico', 'clientes', 'dash'].includes(g)) cur = g; render(); const nn = sgNovas().length; if (nn) setTimeout(() => toast('🔎 ' + nn + (nn == 1 ? ' nova procura' : ' novas procuras') + ' de clientes: ' + sgResumo()), 700); }
 }
 /* ===== APLICATIVO INSTALÁVEL ===== */
 let INST = null;

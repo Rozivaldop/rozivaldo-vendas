@@ -31,6 +31,7 @@
   <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16l4-5 3 3 5-7"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4zM10 21h4"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
 </svg>
@@ -58,6 +59,7 @@
     <details><summary><svg class="ic"><use href="#i-book"/></svg>Catálogo</summary>
       <button data-nav="catalogo" onclick="go('catalogo')"><svg class="ic"><use href="#i-share"/></svg>Catálogo Digital Inteligente</button>
       <button data-nav="vitrine" onclick="go('vitrine')"><svg class="ic"><use href="#i-zap"/></svg>Vitrine Interativa WhatsApp</button>
+      <button data-nav="procuras" onclick="PR.f='abertas';go('procuras')"><svg class="ic"><use href="#i-search"/></svg>Procuras dos clientes<span id="sbadge" class="nb" hidden></span></button>
     </details>
 
     <details><summary><svg class="ic"><use href="#i-cart"/></svg>Vendas</summary>
@@ -87,7 +89,7 @@
     <header id="top">
       <button class="burger" onclick="menu()">☰</button>
       <span class="tb-brand">ROZIVALDO STORE</span>
-      <button class="bell" onclick="go('pedidos')" title="Pedidos online"><svg class="ic" style="width:20px;height:20px"><use href="#i-bell"/></svg><b id="pbadge" hidden></b></button>
+      <button class="bell" onclick="avisos()" title="Notificações"><svg class="ic" style="width:20px;height:20px"><use href="#i-bell"/></svg><b id="pbadge" hidden></b></button>
       <button class="avatar" onclick="go('ajustes')" title="Configurações">R</button>
     </header>
     <main id="view"></main>
