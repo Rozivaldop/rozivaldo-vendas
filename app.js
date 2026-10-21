@@ -9,7 +9,7 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], sg: [] }, cur = 'inicio', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [] }, cur = 'inicio', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
@@ -21,10 +21,10 @@ async function load() {
     db.from('produtos').select('*').order('nome'),
     db.from('parcelas').select('*'),
     db.from('contas').select('*'),
-    db.from('pedidos').select('*').eq('status', 'novo').order('criado_em', { ascending: false }),
+    db.from('pedidos').select('*').order('criado_em', { ascending: false }).limit(300),
     db.from('sugestoes').select('*').order('criado_em', { ascending: false })
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pd: pd.data || [], sg: sg.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [] };
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
@@ -38,7 +38,7 @@ function render() {
   if (cur == 'inicio') vitInit();
   if (cur == 'vitrine') vtxt();
   if (cur == 'venda') iniciaVenda();
-  const nn = sgNovas().length, tt = S.pd.length + nn, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; }
+  const nn = sgNovas().length, tt = S.pd.length + nn, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; } const pdb = $('#pdbadge'); if (pdb) { pdb.textContent = S.pd.length || ''; pdb.hidden = !S.pd.length; }
 }
 function modal(h) { $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet">${h}</div></div>`; }
 function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
@@ -274,7 +274,7 @@ function hojeItens() {
     atr.length && ['🔴', 'Parcelas atrasadas', `${atr.length} · ${R(sum(atr, x => x.falta))}`, "COB.f='atrasadas';go('cobranca')", 'bad'],
     hj.length && ['📅', 'Vencem hoje', `${hj.length} · ${R(sum(hj, x => x.falta))}`, "COB.f='hoje';go('cobranca')", 'warn'],
     ent.length && ['🚚', 'Entregas pendentes', String(ent.length), "H.st='Entrega pendente';go('historico')", ''],
-    S.pd.length && ['🛒', 'Pedidos novos do catálogo', String(S.pd.length), "go('pedidos')", 'warn'],
+    S.pd.length && ['🛒', 'Pedidos novos do catálogo', String(S.pd.length), "PD.f='novos';go('pedidos')", 'warn'],
     ct.length && ['💸', 'Contas a pagar (vencidas ou em 7 dias)', `${ct.length} · ${R(sum(ct, x => x.valor))}`, "go('contas')", ''],
     ap && ['⚠️', 'Caixa apertado em ' + ap.d.toLocaleDateString('pt-BR', { month: 'long' }), R(ap.ac), "go('fluxo')", 'bad']
   ].filter(Boolean);
@@ -1119,14 +1119,41 @@ function aplicaVoz(txt) {
   calc(); toast('Confira os campos e toque em Registrar venda');
 }
 
+let PD = { f: 'novos' };
+const PDS = { novos: ['novo'], analise: ['analise'], vendidos: ['convertido'], recusados: ['recusado'] };
+function pedCard(p) {
+  const st = p.status, itens = p.itens || [];
+  const linha = i => {
+    const pr = S.pr.find(x => x.id == i.id);
+    const av = !pr ? ' <em class="tag bad">não cadastrado</em>' : Math.abs(Number(pr.preco) - Number(i.preco)) > 0.005 ? ` <em class="tag wait">preço agora ${R(pr.preco)}</em>` : '';
+    return `<small class="blk">${i.qtd}× ${esc(i.nome)} — ${R(i.preco)}${av}</small>`;
+  };
+  return `<div class="card"><div class="row"><b>${esc(p.nome)} ${st == 'analise' ? '<em class="tag wait">Em análise</em>' : ''}</b><b>${R(p.total)}</b></div><small class="blk">${esc(p.telefone || '')} · ${D(p.criado_em)}</small>
+  ${itens.map(linha).join('')}
+  <div class="row" style="margin-top:8px">${st == 'novo' || st == 'analise' ? `<button class="btn" onclick="virarVenda('${p.id}')">Viável: virar venda</button>${st == 'novo' ? `<button class="btn alt" onclick="pedStatus('${p.id}','analise')">Em análise</button>` : ''}<button class="btn alt red" onclick="pedStatus('${p.id}','recusado')">Não viável</button>` : st == 'recusado' ? `<button class="btn alt" onclick="pedStatus('${p.id}','novo')">Reabrir</button>` : '<small class="grn">✓ virou venda</small>'}
+  ${p.telefone ? `<button class="lnk" onclick="pedZap('${p.id}')">WhatsApp</button>` : ''}<button class="lnk red" onclick="del('pedidos','${p.id}')">Excluir</button></div></div>`;
+}
 function pedidos() {
-  return `<h1>Pedidos online</h1><p class="mut">Pedidos feitos pelos clientes na vitrine. “Virar venda” abre a Nova venda já preenchida.</p>` +
-  (S.pd.map(p => `<div class="card"><div class="row"><b>${esc(p.nome)}</b><b>${R(p.total)}</b></div><small class="blk">${esc(p.telefone)} · ${D(p.criado_em)}</small>
-    ${p.itens.map(i => `<small class="blk">${i.qtd}× ${esc(i.nome)} — ${R(i.preco)}</small>`).join('')}
-    <div class="row"><button class="btn" onclick="virarVenda('${p.id}')">Virar venda</button><a class="lnk" target="_blank" href="https://wa.me/${fone(p.telefone)}">Chamar no WhatsApp</a><button class="lnk red" onclick="del('pedidos','${p.id}')">Descartar</button></div></div>`).join('') || '<p class="mut">Nenhum pedido novo.</p>');
+  const pt = S.pt || [], cont = k => pt.filter(p => PDS[k].includes(p.status)).length, l = pt.filter(p => PDS[PD.f].includes(p.status));
+  return `<h1>Pedidos online</h1><p class="mut">Pedidos feitos pelos clientes no catálogo. Confira se os itens estão disponíveis e decida: <b>Viável</b> (vira venda) ou <b>Não viável</b>. O pedido fica guardado em cada lista.</p>
+  <div class="row" style="justify-content:flex-start">${[['novos', 'Novos'], ['analise', 'Em análise'], ['vendidos', 'Vendidos'], ['recusados', 'Não viáveis']].map(([k, t]) => `<button class="btn ${PD.f == k ? '' : 'alt'}" onclick="PD.f='${k}';render()">${t} (${cont(k)})</button>`).join('')}</div>
+  ${l.map(pedCard).join('') || '<p class="mut">Nenhum pedido nesta lista.</p>'}`;
+}
+async function pedStatus(id, st) {
+  const { error } = await db.from('pedidos').update({ status: st }).eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  PD.f = { analise: 'analise', recusado: 'recusados', novo: 'novos' }[st] || PD.f;
+  await load(); render(); toast({ analise: 'Movido para Em análise', recusado: 'Marcado como não viável', novo: 'Pedido reaberto' }[st] || 'Atualizado');
+}
+function pedZap(id) {
+  const p = (S.pt || []).find(x => x.id == id); if (!p) return;
+  const t = p.status == 'recusado' ? `Olá, ${p.nome}! Obrigada pelo seu pedido 💜\n\nInfelizmente não conseguimos atender dessa vez, mas já anotei seu interesse para as próximas novidades. Posso te ajudar com outra opção?`
+    : p.status == 'convertido' ? `Olá, ${p.nome}! Seu pedido foi confirmado. Obrigada pela compra na Rozivaldo Store! 💜`
+    : `Olá, ${p.nome}! Recebi seu pedido de ${R(p.total)} pelo catálogo da Rozivaldo Store 💜\n\nEstou conferindo a disponibilidade e já te retorno!`;
+  window.open(zapLink(p, t), '_blank');
 }
 async function virarVenda(id) {
-  const p = S.pd.find(x => x.id == id), d = (p.telefone || '').replace(/\D/g, '');
+  const p = S.pt.find(x => x.id == id), d = (p.telefone || '').replace(/\D/g, '');
   let c = S.c.find(x => d && (x.telefone || '').replace(/\D/g, '') == d);
   if (!c) {
     const r = await db.from('clientes').insert({ nome: p.nome, telefone: p.telefone }).select().single();
