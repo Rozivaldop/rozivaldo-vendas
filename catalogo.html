@@ -34,13 +34,16 @@ header h1{margin:0;font-size:1.4rem;font-weight:800}header small{color:var(--mut
 .ask-link{color:#7db0ff;font-size:.8rem;text-decoration:none;display:inline-block;margin-top:8px}
 .ask{max-width:1100px;margin:22px 14px 0;padding:18px;text-align:center;background:var(--pan);border:1px dashed #3a4a6b;border-radius:14px}
 .ask p,.nota{color:var(--mut);margin:6px 0 12px;font-size:.88rem}.ask .btn{padding:11px 18px}
+.chips.sub{padding-top:0}.chips.sub button{font-size:.78rem;background:transparent}.chips.sub button.on{background:#27344f;border-color:#3b82f6}
+.sec{max-width:1100px;margin:18px auto 6px;padding:0 14px;font-weight:800;font-size:1.02rem}
 </style>
 </head>
 <body>
 <header><h1>ROZIVALDO STORE</h1><small>MODA · LINGERIE · SEX SHOP</small><br><a class="ask-link" href="#" onclick="abrirSug();return false">💡 Não achou o que queria? Peça aqui</a></header>
 <div class="srch"><input id="q" class="inp" type="search" placeholder="🔎 Buscar produto ou código" oninput="Q=this.value;desenha()"></div>
 <div class="chips" id="chips"></div>
-<div class="grid" id="grid"></div>
+<div class="chips sub" id="subchips"></div>
+<div id="grid"></div>
 <div class="ask" id="ask"><b>Não encontrou o que procura?</b><p>Conte pra gente o que você quer e vamos tentar trazer! 💜</p><button class="btn" onclick="abrirSug(Q)">💡 Pedir um produto</button></div>
 <div class="bar" id="bar" hidden><div><small id="bn"></small><b id="bt" style="display:block;font-size:1.1rem"></b></div><button class="btn" onclick="abrir()">Finalizar pedido</button></div>
 <div id="modal"></div>
@@ -56,18 +59,35 @@ let P = [], cart = {}, cat = 'Todos', Q = '';
 const nz = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const sku = p => p.sku || 'RS' + String(p.id).replace(/-/g, '').slice(0, 8).toUpperCase();
 
+let SC = [], sub = '';
+const IC = { Masculino: '👔', Feminino: '👗', Lingerie: '💗', Sexshop: '🔥' };
 async function init() {
-  const { data, error } = await db.from('produtos').select('*').eq('vitrine', true).order('nome');
-  if (error) { $('#grid').innerHTML = '<p class="mut">Não foi possível carregar o catálogo agora.</p>'; return; }
-  P = data || []; desenha();
+  const [r, s] = await Promise.all([db.from('produtos').select('*').eq('vitrine', true).order('nome'), db.from('subcategorias').select('*').order('nome')]);
+  if (r.error) { $('#grid').innerHTML = '<p class="mut">Não foi possível carregar o catálogo agora.</p>'; return; }
+  P = r.data || []; SC = s.data || []; desenha();
 }
-function desenha() {
-  const cats = ['Todos', ...new Set(P.map(p => p.categoria))];
-  $('#chips').innerHTML = cats.map(k => `<button class="${k == cat ? 'on' : ''}" onclick="cat='${k}';desenha()">${k}</button>`).join('');
-  const l = P.filter(p => (cat == 'Todos' || p.categoria == cat) && (!Q.trim() || nz(p.nome + ' ' + sku(p)).includes(nz(Q.trim()))));
-  $('#grid').innerHTML = l.map(p => `<div class="pc">${p.foto ? `<img src="${p.foto}" alt="">` : '<div class="pimg">🛍️</div>'}
+const subsPresentes = a => {
+  const l = P.filter(p => p.categoria == a), ord = SC.filter(s => s.area == a).map(s => s.nome);
+  const extra = [...new Set(l.map(p => p.subcategoria).filter(Boolean))].filter(n => !ord.includes(n));
+  return [...ord, ...extra].filter(n => l.some(p => p.subcategoria == n));
+};
+const card = p => `<div class="pc">${p.foto ? `<img src="${p.foto}" alt="">` : '<div class="pimg">🛍️</div>'}
     <b class="pn">${esc(p.nome)}</b><b class="pp">${R(p.preco)}</b><small>SKU: ${esc(sku(p))}</small>
-    ${cart[p.id] ? `<div class="qt"><button onclick="mud('${p.id}',-1)">−</button><b>${cart[p.id]}</b><button onclick="mud('${p.id}',1)">+</button></div>` : `<button class="add" onclick="mud('${p.id}',1)">ADICIONAR +</button>`}</div>`).join('') || `<div class="mut">${Q.trim() ? 'Nenhum produto encontrado para “' + esc(Q.trim()) + '”.' : 'Nenhum produto disponível no momento.'}<br><br><button class="btn" onclick="abrirSug(Q)">💡 Pedir ${Q.trim() ? 'este produto' : 'um produto'}</button></div>`;
+    ${cart[p.id] ? `<div class="qt"><button onclick="mud('${p.id}',-1)">−</button><b>${cart[p.id]}</b><button onclick="mud('${p.id}',1)">+</button></div>` : `<button class="add" onclick="mud('${p.id}',1)">ADICIONAR +</button>`}</div>`;
+function desenha() {
+  const areas = CATS.filter(k => P.some(p => p.categoria == k));
+  if (cat != 'Todos' && !areas.includes(cat)) { cat = 'Todos'; sub = ''; }
+  $('#chips').innerHTML = ['Todos', ...areas].map(k => `<button class="${k == cat ? 'on' : ''}" onclick="cat='${k}';sub='';desenha()">${k == 'Todos' ? 'Todos' : IC[k] + ' ' + k}</button>`).join('');
+  const subs = cat == 'Todos' ? [] : subsPresentes(cat), temOutros = subs.length && P.some(p => p.categoria == cat && !p.subcategoria);
+  if (sub && sub != '__outros' && !subs.includes(sub)) sub = '';
+  $('#subchips').innerHTML = subs.length ? ['', ...subs, ...(temOutros ? ['__outros'] : [])].map(n => `<button class="${n == sub ? 'on' : ''}" data-s="${esc(n)}" onclick="sub=this.dataset.s;desenha()">${n === '' ? 'Todas' : n == '__outros' ? 'Outros' : esc(n)}</button>`).join('') : '';
+  const q = Q.trim(), l = P.filter(p => (cat == 'Todos' || p.categoria == cat) && (!sub || (sub == '__outros' ? !p.subcategoria : p.subcategoria == sub)) && (!q || nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '')).includes(nz(q))));
+  const sec = (t, arr) => arr.length ? `<div class="sec">${t}</div><div class="grid">${arr.map(card).join('')}</div>` : '';
+  let html;
+  if (q || sub) html = l.length ? `<div class="grid">${l.map(card).join('')}</div>` : '';
+  else if (cat == 'Todos') html = areas.map(k => sec(IC[k] + ' ' + k, l.filter(p => p.categoria == k))).join('');
+  else html = subs.length ? subs.map(n => sec(esc(n), l.filter(p => p.subcategoria == n))).join('') + sec('Outros', l.filter(p => !p.subcategoria)) : `<div class="grid">${l.map(card).join('')}</div>`;
+  $('#grid').innerHTML = html || `<div class="mut">${q ? 'Nenhum produto encontrado para “' + esc(q) + '”.' : 'Nenhum produto disponível no momento.'}<br><br><button class="btn" onclick="abrirSug(Q)">💡 Pedir ${q ? 'este produto' : 'um produto'}</button></div>`;
   const n = Object.values(cart).reduce((a, b) => a + b, 0), t = total();
   $('#bar').hidden = !n; $('#bn').textContent = n + (n == 1 ? ' item' : ' itens'); $('#bt').textContent = R(t);
 }

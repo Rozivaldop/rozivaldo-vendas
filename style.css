@@ -122,3 +122,6 @@ aside .mic{margin-left:auto;color:#ec4899}aside .mic .ic{width:16px;height:16px}
 /* ===== Procuras dos clientes ===== */
 .nb{margin-left:auto;background:var(--red);color:#fff;font-size:.65rem;font-weight:700;border-radius:99px;padding:1px 7px}
 .barra{height:6px;background:#1b2740;border-radius:99px;margin:8px 0}.barra i{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#a855f7);border-radius:99px}
+
+/* Categorias */
+.subt{font-size:.85rem;font-weight:600;color:#9fb0cf;margin:12px 0 2px}.subt small{color:var(--mut);font-weight:400}

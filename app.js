@@ -9,12 +9,12 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [] }, cur = 'inicio', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [] }, cur = 'inicio', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
 async function load() {
-  const [c, v, p, pr, pa, ct, pd, sg] = await Promise.all([
+  const [c, v, p, pr, pa, ct, pd, sg, sc] = await Promise.all([
     db.from('clientes').select('*').order('nome'),
     db.from('vendas').select('*, itens_venda(*)').order('data', { ascending: false }),
     db.from('pagamentos').select('*').order('criado_em', { ascending: false }),
@@ -22,9 +22,10 @@ async function load() {
     db.from('parcelas').select('*'),
     db.from('contas').select('*'),
     db.from('pedidos').select('*').order('criado_em', { ascending: false }).limit(300),
-    db.from('sugestoes').select('*').order('criado_em', { ascending: false })
+    db.from('sugestoes').select('*').order('criado_em', { ascending: false }),
+    db.from('subcategorias').select('*').order('nome')
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [] };
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
@@ -38,63 +39,108 @@ function render() {
   if (cur == 'inicio') vitInit();
   if (cur == 'vitrine') vtxt();
   if (cur == 'venda') iniciaVenda();
-  const nn = sgNovas().length, tt = S.pd.length + nn, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; } const pdb = $('#pdbadge'); if (pdb) { pdb.textContent = S.pd.length || ''; pdb.hidden = !S.pd.length; }
+  const nn = sgPend().length, tt = S.pd.length + nn, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; } const pdb = $('#pdbadge'); if (pdb) { pdb.textContent = S.pd.length || ''; pdb.hidden = !S.pd.length; }
 }
 function modal(h) { $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet">${h}</div></div>`; }
 function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
-/* ===== PROCURAS DOS CLIENTES (produtos que não achou no catálogo) ===== */
-let PR = { f: 'abertas' }, PREPROD = null;
+/* ===== PEDIDOS DE PRODUTOS (o que o cliente procurou e você não tem) ===== */
+let PR = { f: 'novas' }, PREPROD = null;
+const SGT = { novas: ['nova'], avaliando: ['analise'], comprar: ['viavel'], atendidas: ['atendida', 'avisada'], descartadas: ['descartada'] };
 const sgKey = t => nz(String(t || '')).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map(w => w.length > 3 ? w.replace(/s$/, '') : w).join(' ');
 const sgChave = x => sgKey(x.produto) || x.id;
 const sgVisto = () => { try { return new Date(localStorage.getItem('rs_sg_visto') || 0); } catch (e) { return new Date(0); } };
 const sgMarcaVisto = () => { try { localStorage.setItem('rs_sg_visto', new Date().toISOString()); } catch (e) {} };
-const sgNovas = () => (S.sg || []).filter(x => x.status == 'nova' && new Date(x.criado_em) > sgVisto());
-function sgResumo() {
+const sgPend = () => (S.sg || []).filter(x => x.status == 'nova');
+const sgNovas = () => sgPend().filter(x => new Date(x.criado_em) > sgVisto());
+function sgResumo(lista) {
   const o = {};
-  sgNovas().forEach(x => { const k = sgChave(x); o[k] = o[k] || { n: 0, nome: x.produto.trim() }; o[k].n++; });
+  (lista || sgPend()).forEach(x => { const k = sgChave(x); o[k] = o[k] || { n: 0, nome: x.produto.trim() }; o[k].n++; });
   return Object.values(o).sort((a, b) => b.n - a.n).slice(0, 3).map(x => `${x.nome} (${x.n})`).join(', ');
 }
 function sgGrupos(f) {
-  const ok = { abertas: x => x.status == 'nova', atendidas: x => x.status == 'atendida' || x.status == 'avisada', descartadas: x => x.status == 'descartada' }[f], g = {};
-  (S.sg || []).filter(ok).forEach(x => { const k = sgChave(x); (g[k] = g[k] || { k, l: [] }).l.push(x); });
+  const g = {};
+  (S.sg || []).filter(x => SGT[f].includes(x.status)).forEach(x => { const k = sgChave(x); (g[k] = g[k] || { k, l: [] }).l.push(x); });
   const top = o => Object.entries(o).sort((a, b) => b[1] - a[1]).map(e => e[0])[0] || '';
+  const prim = (l, c) => { const r = l.find(x => x[c] != null && x[c] !== ''); return r ? r[c] : null; };
   return Object.values(g).map(o => {
     const nomes = {}, cats = {};
     o.l.forEach(x => { const n = x.produto.trim(); nomes[n] = (nomes[n] || 0) + 1; if (x.categoria) cats[x.categoria] = (cats[x.categoria] || 0) + 1; });
-    return { ...o, nome: top(nomes), cat: top(cats), n: o.l.length, ult: o.l[0].criado_em };
+    return { ...o, nome: top(nomes), cat: top(cats), n: o.l.length, ult: o.l[0].criado_em, custo: prim(o.l, 'custo_est'), preco: prim(o.l, 'preco_est'), obs: prim(o.l, 'obs'), pessoas: new Set(o.l.map(x => x.telefone || x.nome || x.id)).size };
   }).sort((a, b) => b.n - a.n || new Date(b.ult) - new Date(a.ult));
+}
+function margemMedia() {
+  const l = S.pr.filter(p => p.custo != null && p.preco > 0), t = sum(l, p => p.preco);
+  return t ? sum(l, p => p.preco - p.custo) / t : null;
 }
 function sgCard(x, i, max, antes) {
   const f = PR.f, det = [...new Set(x.l.map(p => (p.detalhes || '').trim()).filter(Boolean))].slice(0, 3);
-  const acao = p => !p.telefone ? '' : f == 'abertas' ? `<button class="lnk" onclick="sgZap('${p.id}')">Responder</button>` : f == 'atendidas' ? (p.status == 'avisada' ? '<small class="grn">✓ avisada</small>' : `<button class="btn" onclick="sgAvisar('${p.id}')">Avisar que chegou</button>`) : '';
+  const mg = x.preco > 0 && x.custo != null ? (x.preco - x.custo) / x.preco : null;
+  const acao = p => !p.telefone ? '' : f == 'atendidas' ? (p.status == 'avisada' ? '<small class="grn">✓ avisada</small>' : `<button class="btn" onclick="sgAvisar('${p.id}')">Avisar que chegou</button>`) : f == 'descartadas' ? '' : `<button class="lnk" onclick="sgZap('${p.id}')">Responder</button>`;
+  const botoes = { novas: `<button class="btn" onclick="sgAnalisar('${x.k}')">Analisar se vale comprar</button><button class="btn alt" onclick="sgStatus('${x.k}','descartada')">Descartar</button>`,
+    avaliando: `<button class="btn" onclick="sgAnalisar('${x.k}')">Editar análise</button><button class="btn alt" onclick="sgStatus('${x.k}','viavel')">✅ Vou comprar</button><button class="btn alt red" onclick="sgStatus('${x.k}','descartada')">❌ Não viável</button>`,
+    comprar: `<button class="btn" onclick="sgCadastrar('${x.k}')">Cadastrar no catálogo</button><button class="btn alt" onclick="sgAnalisar('${x.k}')">Ver análise</button><button class="btn alt" onclick="sgStatus('${x.k}','analise')">Voltar p/ avaliando</button>`,
+    atendidas: `<button class="btn alt" onclick="sgStatus('${x.k}','nova')">Reabrir</button>`, descartadas: `<button class="btn alt" onclick="sgStatus('${x.k}','nova')">Reabrir</button>` }[f];
   return `<div class="card"><div class="row"><b>${i + 1}º · ${esc(x.nome)}</b><em class="tag ${x.n >= 3 ? 'bad' : 'wait'}">${x.n} ${x.n == 1 ? 'pedido' : 'pedidos'}</em></div>
   <div class="barra"><i style="width:${Math.max(6, x.n / max * 100)}%"></i></div>
-  <small class="blk">${x.cat ? IC[x.cat] + ' ' + x.cat + ' · ' : ''}último pedido em ${new Date(x.ult).toLocaleDateString('pt-BR')}</small>
+  <small class="blk">${x.cat ? IC[x.cat] + ' ' + x.cat + ' · ' : ''}${x.pessoas} ${x.pessoas == 1 ? 'pessoa' : 'pessoas'} · último pedido em ${new Date(x.ult).toLocaleDateString('pt-BR')}</small>
   ${det.map(d => `<small class="blk">💬 “${esc(d)}”</small>`).join('')}
+  ${x.preco > 0 || x.custo != null ? `<small class="blk">📊 Custo ${x.custo != null ? R(x.custo) : '—'} · venda ${x.preco > 0 ? R(x.preco) : '—'}${mg != null ? ' · margem ' + pct(mg) : ''}</small>` : ''}${x.obs ? `<small class="blk">📝 ${esc(x.obs)}</small>` : ''}
   <details><summary class="lnk">Quem pediu (${x.l.length})</summary>${x.l.map(p => `<div class="row" style="margin-top:6px"><small>${esc(p.nome || 'Sem nome')}${p.telefone ? ' · ' + esc(p.telefone) : ''}${p.status == 'nova' && new Date(p.criado_em) > antes ? ' <em class="tag wait">novo</em>' : ''}</small>${acao(p)}</div>`).join('')}</details>
-  <div class="row" style="margin-top:8px">${f == 'abertas' ? `<button class="btn" onclick="sgCadastrar('${x.k}')">Cadastrar produto</button><button class="btn alt" onclick="sgStatus('${x.k}','descartada')">Descartar</button>` : `<button class="btn alt" onclick="sgStatus('${x.k}','nova')">Reabrir</button>`}</div></div>`;
+  <div class="row" style="margin-top:8px">${botoes}</div></div>`;
 }
 function procuras() {
   const antes = sgVisto(); sgMarcaVisto();
-  const g = sgGrupos(PR.f), max = g[0] ? g[0].n : 1, ab = sgGrupos('abertas');
-  return `<h1>Procuras dos clientes</h1><p class="mut">O que seus clientes pediram no catálogo e você ainda não tem. Os mais pedidos aparecem primeiro.</p>
-  <div class="grid"><div class="card"><small>Pedidos em aberto</small><b class="blk">${sum(ab, x => x.n)}</b></div><div class="card"><small>Produto mais pedido</small><b class="blk" style="font-size:1rem">${ab[0] ? esc(ab[0].nome) + ' (' + ab[0].n + ')' : '—'}</b></div></div>
-  <div class="row" style="justify-content:flex-start">${[['abertas', 'Em aberto'], ['atendidas', 'Atendidas'], ['descartadas', 'Descartadas']].map(([k, l]) => `<button class="btn ${PR.f == k ? '' : 'alt'}" onclick="PR.f='${k}';render()">${l}</button>`).join('')}</div>
-  ${g.map((x, i) => sgCard(x, i, max, antes)).join('') || `<p class="mut">${PR.f == 'abertas' ? 'Nenhuma procura em aberto. Quando um cliente pedir algo no catálogo, aparece aqui.' : 'Nada por aqui ainda.'}</p>`}`;
+  const g = sgGrupos(PR.f), max = g[0] ? g[0].n : 1, pe = sgGrupos('novas');
+  const abas = [['novas', 'Novas'], ['avaliando', 'Avaliando'], ['comprar', 'Vou comprar'], ['atendidas', 'Atendidas'], ['descartadas', 'Descartadas']];
+  return `<h1>Pedidos de produtos</h1><p class="mut">Produtos que seus clientes pediram no catálogo e você ainda não tem. Analise se vale comprar, cadastre e avise quem pediu.</p>
+  <div class="grid"><div class="card"><small>Aguardando análise</small><b class="blk">${sgPend().length}</b></div><div class="card"><small>Mais pedido</small><b class="blk" style="font-size:1rem">${pe[0] ? esc(pe[0].nome) + ' (' + pe[0].n + ')' : '—'}</b></div></div>
+  <div class="row" style="justify-content:flex-start">${abas.map(([k, l]) => `<button class="btn ${PR.f == k ? '' : 'alt'}" onclick="PR.f='${k}';render()">${l} (${sgGrupos(k).length})</button>`).join('')}</div>
+  ${g.map((x, i) => sgCard(x, i, max, antes)).join('') || `<p class="mut">${PR.f == 'novas' ? 'Nenhum pedido novo. Quando um cliente pedir algo que não está no catálogo, aparece aqui.' : 'Nada por aqui ainda.'}</p>`}`;
 }
 async function sgStatus(k, para) {
-  const de = { abertas: ['nova'], atendidas: ['atendida', 'avisada'], descartadas: ['descartada'] }[PR.f];
-  const ids = S.sg.filter(x => sgChave(x) == k && de.includes(x.status)).map(x => x.id);
+  const ids = S.sg.filter(x => sgChave(x) == k && SGT[PR.f].includes(x.status)).map(x => x.id);
   const { error } = await db.from('sugestoes').update({ status: para }).in('id', ids);
   if (error) return toast('Erro: ' + error.message);
-  await load(); render(); toast(para == 'descartada' ? 'Descartado' : 'Reaberto');
+  await load(); render();
+  toast({ descartada: 'Descartado', nova: 'Voltou para Novas', viavel: 'Movido para Vou comprar', analise: 'Movido para Avaliando' }[para]);
+}
+function sgAnalisar(k) {
+  const g = sgGrupos(PR.f).find(x => x.k == k); if (!g) return;
+  modal(`<h2>Vale a pena comprar?</h2><p class="mut"><b>${esc(g.nome)}</b> · ${g.n} ${g.n == 1 ? 'pedido' : 'pedidos'} de ${g.pessoas} ${g.pessoas == 1 ? 'pessoa' : 'pessoas'}</p>
+  <form onsubmit="event.preventDefault();sgGravar('${k}','analise')">
+  <label><small>Quanto você pagaria por unidade (custo, R$)</small><input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" value="${g.custo ?? ''}" oninput="sgCalc()"></label>
+  <label><small>Por quanto venderia (R$)</small><input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" value="${g.preco ?? ''}" oninput="sgCalc()"></label>
+  <div class="card" id="sgm" data-n="${g.n}"></div>
+  <textarea class="inp" name="obs" rows="2" placeholder="Fornecedor, prazo, quantidade mínima...">${esc(g.obs || '')}</textarea>
+  <button class="btn w">Salvar análise (continua em Avaliando)</button>
+  <button type="button" class="btn w" style="margin-top:8px;background:#15803d" onclick="sgGravar('${k}','viavel')">✅ É viável: vou comprar</button>
+  <button type="button" class="btn alt w red" style="margin-top:8px" onclick="sgGravar('${k}','descartada')">❌ Não é viável</button></form>`);
+  sgCalc();
+}
+function sgCalc() {
+  const f = document.querySelector('#modal form'), b = $('#sgm'); if (!f || !b) return;
+  const c = +f.custo.value, p = +f.preco.value, n = +b.dataset.n || 1;
+  if (!(p > 0) || f.custo.value === '') { b.innerHTML = '<small>Informe o custo e o preço de venda para ver a margem.</small>'; return; }
+  const lu = p - c, m = lu / p, mm = margemMedia();
+  b.innerHTML = `<div class="row"><span>Lucro por unidade</span><b class="${lu >= 0 ? 'grn' : 'red'}">${R(lu)}</b></div><div class="row"><span>Margem</span><b class="${m >= 0.4 ? 'grn' : m >= 0.2 ? '' : 'red'}">${pct(m)}</b></div>
+  <small class="blk">${m >= 0.4 ? '✅ Margem saudável' : m >= 0.2 ? '⚠️ Margem apertada' : '❌ Margem baixa'}${mm != null ? ' · sua margem média hoje: ' + pct(mm) : ''}</small>
+  <small class="blk">Se vender 1 para cada pedido (${n}): ${R(n * p)} em vendas e ${R(n * lu)} de lucro.</small>`;
+}
+async function sgGravar(k, st) {
+  const f = document.querySelector('#modal form'), v = n => f[n].value.trim();
+  const ids = S.sg.filter(x => sgChave(x) == k && SGT[PR.f].includes(x.status)).map(x => x.id);
+  const d = { status: st, custo_est: v('custo') === '' ? null : +v('custo'), preco_est: v('preco') === '' ? null : +v('preco'), obs: v('obs') || null };
+  const { error } = await db.from('sugestoes').update(d).in('id', ids);
+  if (error) return toast('Erro: ' + error.message);
+  fecha(); PR.f = { analise: 'avaliando', viavel: 'comprar', descartada: 'descartadas' }[st];
+  await load(); render(); toast({ analise: 'Análise salva', viavel: 'Marcado para comprar 👍', descartada: 'Marcado como não viável' }[st]);
 }
 function sgCadastrar(k) {
-  const g = sgGrupos('abertas').find(x => x.k == k); if (!g) return;
-  go('catalogo'); PREPROD = { nome: g.nome, categoria: g.cat, sg: k }; formProd();
+  const g = sgGrupos(PR.f).find(x => x.k == k); if (!g) return;
+  go('catalogo'); PREPROD = { nome: g.nome, categoria: g.cat, preco: g.preco, custo: g.custo, sg: k }; formProd();
 }
 function sgZap(id) {
   const p = S.sg.find(x => x.id == id); if (!p) return;
@@ -146,10 +192,10 @@ function reativar(id) {
   render(); toast('Mensagem aberta no WhatsApp');
 }
 /* ===== VENDA COM FOTO DO PRODUTO ===== */
-let VP = { q: '', cat: 'Todos' };
+let VP = { q: '', cat: 'Todos', sub: '' };
 const vitrineVenda = () => S.pr.length ? `<div class="card"><small>📸 Toque na foto para adicionar (toque de novo para somar mais um)</small>
   <input class="inp" id="vpq" placeholder="Buscar produto ou código SKU" oninput="VP.q=this.value;vpDesenha()" onkeydown="if(event.key=='Enter')event.preventDefault()">
-  <div class="fchips" id="vpc"></div><div class="vpg" id="vpg"></div></div>` : '';
+  <div class="fchips" id="vpc"></div><div class="fchips" id="vps"></div><div class="vpg" id="vpg"></div></div>` : '';
 function vpBadges() {
   const g = $('#vpg'); if (!g) return;
   const m = {};
@@ -159,8 +205,10 @@ function vpBadges() {
 function vpDesenha() {
   const c = $('#vpc'), g = $('#vpg'); if (!c || !g) return;
   const cats = ['Todos', ...CATS.filter(k => S.pr.some(p => p.categoria == k))], q = nz(VP.q);
-  c.innerHTML = cats.map(k => `<button type="button" class="vpcat ${VP.cat == k ? 'on' : ''}" onclick="VP.cat='${k}';vpDesenha()">${k}</button>`).join('');
-  const l = S.pr.filter(p => (VP.cat == 'Todos' || p.categoria == VP.cat) && (!q || nz(p.nome + ' ' + skuDe(p)).includes(q)));
+  c.innerHTML = cats.map(k => `<button type="button" class="vpcat ${VP.cat == k ? 'on' : ''}" onclick="VP.cat='${k}';VP.sub='';vpDesenha()">${k}</button>`).join('');
+  const sc = VP.cat == 'Todos' ? [] : [...new Set(S.pr.filter(p => p.categoria == VP.cat && p.subcategoria).map(p => p.subcategoria))], vs = $('#vps');
+  if (vs) vs.innerHTML = sc.length ? ['', ...sc].map(n => `<button type="button" class="vpcat ${VP.sub == n ? 'on' : ''}" data-s="${esc(n)}" onclick="VP.sub=this.dataset.s;vpDesenha()">${n === '' ? 'Todas' : esc(n)}</button>`).join('') : '';
+  const l = S.pr.filter(p => (VP.cat == 'Todos' || p.categoria == VP.cat) && (!VP.sub || p.subcategoria == VP.sub) && (!q || nz(p.nome + ' ' + skuDe(p) + ' ' + (p.subcategoria || '')).includes(q)));
   g.innerHTML = l.map(p => `<div class="vpt" data-pid="${p.id}" onclick="vpAdd('${p.id}')">${imgProd(p)}<b class="pn">${esc(p.nome)}</b><b class="pp">${R(p.preco)}</b><span class="vpb" hidden></span><button type="button" class="vpm" hidden onclick="event.stopPropagation();vpMenos('${p.id}')">−</button></div>`).join('') || '<small>Nenhum produto encontrado.</small>';
   vpBadges();
 }
@@ -270,7 +318,7 @@ function hojeItens() {
   const lim = dia2(new Date(Date.now() + 7 * 864e5)), ct = S.ct.filter(x => !x.pago && x.vencimento <= lim), ent = S.v.filter(v => v.entregue === false);
   const ap = fluxoDados(3).meses.find(m => m.ac < -0.005);
   const it = [
-    sgNovas().length && ['🔎', 'Clientes procurando produtos que você não tem', `${sgNovas().length} novos · ${sgResumo()}`, "go('procuras')", 'warn'],
+    sgPend().length && ['🔎', 'Clientes pedindo produtos que você não tem', `${sgPend().length} aguardando análise · ${sgResumo()}`, "PR.f='novas';go('procuras')", 'warn'],
     atr.length && ['🔴', 'Parcelas atrasadas', `${atr.length} · ${R(sum(atr, x => x.falta))}`, "COB.f='atrasadas';go('cobranca')", 'bad'],
     hj.length && ['📅', 'Vencem hoje', `${hj.length} · ${R(sum(hj, x => x.falta))}`, "COB.f='hoje';go('cobranca')", 'warn'],
     ent.length && ['🚚', 'Entregas pendentes', String(ent.length), "H.st='Entrega pendente';go('historico')", ''],
@@ -689,19 +737,74 @@ function pick(sel) {
   calc();
 }
 
+/* ===== CATEGORIAS DENTRO DE CADA ÁREA ===== */
+const subsDe = a => (S.sc || []).filter(s => s.area == a).map(s => s.nome);
+function linhaProd(p) {
+  return `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}${p.custo != null && p.preco > 0 ? ` · custo ${R(p.custo)} · margem ${pct((p.preco - p.custo) / p.preco)}` : ''}</small></b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`;
+}
 function catalogo() {
-  return `<div class="row"><h1>Catálogo</h1><button class="btn" onclick="formProd()">+ Novo produto</button></div>
+  const area = k => {
+    const l = S.pr.filter(p => p.categoria == k), nomes = [...new Set([...subsDe(k), ...l.map(p => p.subcategoria).filter(Boolean)])];
+    const bloco = (t, arr, vazio) => arr.length || vazio ? `<h3 class="subt">${esc(t)} <small>(${arr.length})</small></h3>` + arr.map(linhaProd).join('') : '';
+    return l.length || nomes.length ? `<h2>${IC[k]} ${k}</h2>` + nomes.map(n => bloco(n, l.filter(p => p.subcategoria == n), true)).join('') + bloco(nomes.length ? 'Sem categoria' : 'Produtos', l.filter(p => !p.subcategoria || !nomes.includes(p.subcategoria))) : '';
+  };
+  return `<div class="row"><h1>Catálogo</h1><span><button class="btn alt" onclick="formCats()">🗂️ Categorias</button> <button class="btn" onclick="formProd()">+ Novo produto</button></span></div>
   <div class="card"><small>🔗 Link da vitrine para seus clientes</small><b class="blk" style="word-break:break-all">${LINK()}</b>
   <div class="row" style="margin-top:8px"><button class="btn" onclick="copiaLink()">Copiar link</button><a class="btn alt" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Veja nosso catálogo: ' + LINK())}">Enviar no WhatsApp</a></div></div>
-  ${CATS.map(k => { const l = S.pr.filter(p => p.categoria == k); return l.length ? `<h2>${k}</h2>` + l.map(p => `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}${p.custo != null && p.preco > 0 ? ` · custo ${R(p.custo)} · margem ${pct((p.preco - p.custo) / p.preco)}` : ''}</small></b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`).join('') : ''; }).join('')}
+  ${CATS.map(area).join('')}
   ${S.pr.length ? '' : '<p class="mut">Catálogo vazio. Cadastre seus produtos para escolher na hora da venda.</p>'}`;
+}
+function formCats() {
+  modal(`<h2>🗂️ Categorias</h2><p class="mut">Crie categorias dentro de cada área (ex.: Camisas, Bermudas, Shorts). No catálogo do cliente elas aparecem assim que tiverem produtos.</p>
+  ${CATS.map(k => `<div class="card"><b>${IC[k]} ${k}</b>
+    ${(S.sc || []).filter(s => s.area == k).map(s => { const q = S.pr.filter(p => p.categoria == k && p.subcategoria == s.nome).length; return `<div class="row" style="margin-top:6px"><span>${esc(s.nome)} <small>(${q})</small></span><span><button class="lnk" onclick="renomeiaSub('${s.id}')">Renomear</button><button class="lnk red" onclick="excluiSub('${s.id}')">Excluir</button></span></div>`; }).join('') || '<small class="blk">Nenhuma categoria ainda.</small>'}
+    <form class="row" style="margin-top:8px;flex-wrap:nowrap" onsubmit="criaSub(event,'${k}')"><input class="inp" name="n" maxlength="40" placeholder="Nova categoria em ${k}" required style="margin:0"><button class="btn">Criar</button></form></div>`).join('')}`);
+}
+async function criaSub(e, area) {
+  e.preventDefault();
+  const n = e.target.n.value.trim().replace(/\s+/g, ' ');
+  if (!n) return;
+  if (subsDe(area).some(x => nz(x) == nz(n))) return toast('Essa categoria já existe em ' + area);
+  const { error } = await db.from('subcategorias').insert({ area, nome: n });
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); formCats(); toast('Categoria criada');
+}
+async function renomeiaSub(id) {
+  const s = S.sc.find(x => x.id == id); if (!s) return;
+  const n = (prompt('Novo nome da categoria:', s.nome) || '').trim().replace(/\s+/g, ' ');
+  if (!n || n == s.nome) return;
+  if (subsDe(s.area).some(x => nz(x) == nz(n) && x != s.nome)) return toast('Já existe uma categoria com esse nome');
+  let r = await db.from('subcategorias').update({ nome: n }).eq('id', id);
+  if (r.error) return toast('Erro: ' + r.error.message);
+  await db.from('produtos').update({ subcategoria: n }).eq('categoria', s.area).eq('subcategoria', s.nome);
+  await load(); render(); formCats(); toast('Categoria renomeada');
+}
+async function excluiSub(id) {
+  const s = S.sc.find(x => x.id == id); if (!s) return;
+  const q = S.pr.filter(p => p.categoria == s.area && p.subcategoria == s.nome).length;
+  if (!confirm(`Excluir a categoria "${s.nome}"?${q ? `\n\nOs ${q} produtos continuam no catálogo, só ficam sem categoria.` : ''}`)) return;
+  await db.from('produtos').update({ subcategoria: null }).eq('categoria', s.area).eq('subcategoria', s.nome);
+  const { error } = await db.from('subcategorias').delete().eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); formCats(); toast('Categoria excluída');
+}
+function subOpts(sel) {
+  const f = document.querySelector('#modal form'), a = f.categoria.value;
+  f.subcategoria.innerHTML = `<option value="">Sem categoria em ${a}</option>` + subsDe(a).map(n => `<option ${n == sel ? 'selected' : ''}>${esc(n)}</option>`).join('') + '<option value="__nova">➕ Criar nova categoria…</option>';
+  subNova();
+}
+function subNova() {
+  const f = document.querySelector('#modal form'), on = f.subcategoria.value == '__nova';
+  f.nova_sub.hidden = !on; f.nova_sub.required = on; if (on) f.nova_sub.focus();
 }
 function formProd(id) {
   const p = S.pr.find(x => x.id == id) || (!id && PREPROD ? PREPROD : {});
   const pp = PREPROD; modal(`<h2>${id ? 'Editar' : 'Novo'} produto</h2><form onsubmit="salvaProd(event,'${id || ''}')">
   <input class="inp" name="nome" placeholder="Nome do produto" value="${esc(p.nome)}" required>
   <input class="inp" name="sku" placeholder="Código SKU (vazio = gerar automático)" value="${esc(p.sku)}">
-  <select class="inp" name="categoria">${opts(CATS)}</select>
+  <select class="inp" name="categoria" onchange="subOpts()">${opts(CATS)}</select>
+  <select class="inp" name="subcategoria" onchange="subNova()"></select>
+  <input class="inp" name="nova_sub" maxlength="40" placeholder="Nome da nova categoria (ex: Camisas)" hidden>
   <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de venda (R$)" value="${p.preco ?? ''}" required>
   <input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de custo (R$) — quanto você pagou" value="${p.custo ?? ''}">
   <label><small>Foto (opcional)</small><input class="inp" name="foto" type="file" accept="image/*"></label>
@@ -709,15 +812,24 @@ function formProd(id) {
   <button class="btn w">Salvar produto</button></form>`);
   PREPROD = pp;
   if (p.categoria) document.querySelector('#modal [name=categoria]').value = p.categoria;
+  subOpts(p.subcategoria);
 }
 async function salvaProd(e, id) {
   e.preventDefault();
   const pp = !id && PREPROD ? PREPROD : null;
   const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco'), custo: fd.get('custo') === '' ? null : +fd.get('custo'), vitrine: fd.get('vitrine') == 'on', sku: (fd.get('sku') || '').trim() || skuNovo(fd.get('categoria')) };
+  let sub = fd.get('subcategoria') || '';
+  if (sub == '__nova') {
+    sub = (fd.get('nova_sub') || '').trim().replace(/\s+/g, ' ');
+    const ex = subsDe(d.categoria).find(n => nz(n) == nz(sub));
+    if (sub && ex) sub = ex;
+    else if (sub) { const r = await db.from('subcategorias').insert({ area: d.categoria, nome: sub }); if (r.error) return toast('Erro: ' + r.error.message); }
+  }
+  d.subcategoria = sub || null;
   const file = fd.get('foto'); if (file && file.size) d.foto = await redim(file);
   const { error } = id ? await db.from('produtos').update(d).eq('id', id) : await db.from('produtos').insert(d);
   if (error) return toast('Erro: ' + error.message);
-  if (pp) { const ids = S.sg.filter(x => x.status == 'nova' && sgChave(x) == pp.sg).map(x => x.id); if (ids.length) await db.from('sugestoes').update({ status: 'atendida' }).in('id', ids); }
+  if (pp) { const ids = S.sg.filter(x => ['nova', 'analise', 'viavel'].includes(x.status) && sgChave(x) == pp.sg).map(x => x.id); if (ids.length) await db.from('sugestoes').update({ status: 'atendida' }).in('id', ids); }
   fecha(); await load();
   if (pp) { PR.f = 'atendidas'; go('procuras'); toast('Produto cadastrado! Avise quem pediu 💜'); } else { render(); toast('Produto salvo'); }
 }
@@ -1059,7 +1171,7 @@ function fillRow(row, i) {
   if (i.custo != null) row.querySelector('[name=custo]').value = Number(i.custo).toFixed(2);
 }
 function iniciaVenda() {
-  PKEY = ''; PDATES = []; VP = { q: '', cat: 'Todos' }; vpDesenha();
+  PKEY = ''; PDATES = []; VP = { q: '', cat: 'Todos', sub: '' }; vpDesenha();
   if (EDIT) { AUTO = null; return carregaEdicao(); }
   if (PRE) { PEDIDO = PRE.pedido; PRE.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); }); PRE = null; toast(PEDIDO ? 'Pedido carregado. Confira e registre a venda.' : 'Produto adicionado. Escolha o cliente e registre a venda.'); }
   else { PEDIDO = null; addItem(); }
@@ -1181,7 +1293,7 @@ $('#lf').onsubmit = async e => {
 async function start() {
   const { data } = await db.auth.getSession();
   $('#login').hidden = !!data.session; $('#app').hidden = !data.session;
-  if (data.session) { await load(); const g = new URLSearchParams(location.search).get('go'); if (['venda', 'cobranca', 'fluxo', 'contas', 'historico', 'clientes', 'dash'].includes(g)) cur = g; render(); const nn = sgNovas().length; if (nn) setTimeout(() => toast('🔎 ' + nn + (nn == 1 ? ' nova procura' : ' novas procuras') + ' de clientes: ' + sgResumo()), 700); }
+  if (data.session) { await load(); const g = new URLSearchParams(location.search).get('go'); if (['venda', 'cobranca', 'fluxo', 'contas', 'historico', 'clientes', 'dash'].includes(g)) cur = g; render(); const nv = sgNovas(); if (nv.length) setTimeout(() => toast('🔎 ' + nv.length + (nv.length == 1 ? ' novo pedido' : ' novos pedidos') + ' de produto: ' + sgResumo(nv)), 700); }
 }
 /* ===== APLICATIVO INSTALÁVEL ===== */
 let INST = null;

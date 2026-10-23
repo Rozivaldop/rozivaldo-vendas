@@ -55,22 +55,18 @@
     <button data-nav="inicio" onclick="go('inicio')"><svg class="ic"><use href="#i-home"/></svg>Início</button>
     <button data-nav="dash" onclick="go('dash')"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</button>
     <button data-nav="clientes" onclick="go('clientes')"><svg class="ic"><use href="#i-user"/></svg>Clientes</button>
+    <button data-nav="procuras" onclick="PR.f='novas';go('procuras')"><svg class="ic"><use href="#i-search"/></svg>Pedidos de produtos<span id="sbadge" class="nb" hidden></span></button>
 
     <details><summary><svg class="ic"><use href="#i-book"/></svg>Catálogo</summary>
       <button data-nav="catalogo" onclick="go('catalogo')"><svg class="ic"><use href="#i-share"/></svg>Catálogo Digital Inteligente</button>
       <button data-nav="vitrine" onclick="go('vitrine')"><svg class="ic"><use href="#i-zap"/></svg>Vitrine Interativa WhatsApp</button>
-      <button data-nav="procuras" onclick="PR.f='abertas';go('procuras')"><svg class="ic"><use href="#i-search"/></svg>Procuras dos clientes<span id="sbadge" class="nb" hidden></span></button>
     </details>
 
     <details><summary><svg class="ic"><use href="#i-cart"/></svg>Vendas</summary>
       <button data-nav="venda" onclick="go('venda')">Nova Venda</button>
       <button data-nav="pedidos" onclick="PD.f='novos';go('pedidos')">Pedidos online<span id="pdbadge" class="nb" hidden></span></button>
+      <button onclick="audio()">Registro Rápido por Voz <span class="mic"><svg class="ic"><use href="#i-mic"/></svg></span></button>
       <button data-nav="historico" onclick="go('historico')">Histórico</button>
-    </details>
-
-    <details><summary><svg class="ic"><use href="#i-ai"/></svg>Assistente IA</summary>
-      <button onclick="audio()">Vendas por Áudio <span class="mic"><svg class="ic"><use href="#i-mic"/></svg></span></button>
-      <button onclick="lancar()">Lançar Venda <span class="mic"><svg class="ic"><use href="#i-mic"/></svg></span></button>
     </details>
 
     <details><summary><svg class="ic"><use href="#i-wallet"/></svg>Financeiro</summary>
