@@ -4,46 +4,84 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Catálogo · Rozivaldo Store</title>
+<meta name="theme-color" content="#0f1521">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0d1117;--pan:#131b29;--line:#222d42;--tx:#e6ebf5;--mut:#8d9bb5;--blue:#3b82f6;--pink:#ec4899}
 *{box-sizing:border-box}[hidden]{display:none!important}
-body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:90px}
-header{text-align:center;padding:22px 14px 8px}
-header h1{margin:0;font-size:1.4rem;font-weight:800}header small{color:var(--mut);letter-spacing:.06em;font-size:.65rem}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 14px;scrollbar-width:none}
-.chips button{flex:none;background:var(--pan);border:1px solid var(--line);color:var(--tx);border-radius:99px;padding:8px 16px;font:inherit;font-size:.85rem;cursor:pointer}
-.chips button.on{background:var(--blue);border-color:var(--blue);font-weight:600}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:96px}
+.top{text-align:center;padding:22px 14px 6px}
+.brand{display:inline-flex;align-items:center;gap:12px;text-align:left}
+.brand h1{margin:0;font-size:1.25rem;font-weight:800;letter-spacing:.04em}.brand small{color:var(--mut);letter-spacing:.1em;font-size:.6rem}
+.ask-link{display:inline-block;margin-top:10px;color:#7db0ff;font-size:.8rem;text-decoration:none}
+.srch{padding:6px 14px;max-width:1100px;margin:auto}
+.inp{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#0e1626;color:var(--tx);margin:5px 0}
+.areas{position:sticky;top:0;z-index:10;background:#0d1117ee;backdrop-filter:blur(8px);display:flex;gap:8px;overflow-x:auto;padding:10px 14px;scrollbar-width:none;max-width:1100px;margin:auto}
+.areas::-webkit-scrollbar,.strip::-webkit-scrollbar,.chips::-webkit-scrollbar{display:none}
+.areas button,.chips button{flex:none;background:var(--pan);border:1px solid var(--line);color:var(--tx);border-radius:99px;padding:9px 16px;font:inherit;font-size:.86rem;cursor:pointer;transition:.15s}
+.areas button.on{background:var(--blue);border-color:var(--blue);font-weight:600}
+.lbl{max-width:1100px;margin:6px auto 0;padding:0 14px;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.strip{display:flex;gap:12px;overflow-x:auto;padding:8px 14px 10px;max-width:1100px;margin:auto;scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding:0 14px}
+.bt{flex:none;width:98px;background:none;border:0;color:var(--tx);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;font:inherit;scroll-snap-align:start}
+.lg{width:98px;height:66px;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;border:2px solid transparent;transition:.18s;color:#1c2433;font-weight:800;font-size:1.3rem}
+.lg img{max-width:84%;max-height:78%;object-fit:contain}
+.bt:hover .lg{transform:translateY(-2px)}.bt.on .lg{border-color:var(--blue);box-shadow:0 0 0 4px #3b82f633}
+.bt small{font-size:.72rem;color:var(--mut);text-align:center;line-height:1.2}.bt.on small{color:var(--tx);font-weight:600}
+.lg.todas{background:linear-gradient(135deg,#1d2a45,#2a1d45);color:#fff;font-size:1.5rem}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 14px 8px;max-width:1100px;margin:auto;scrollbar-width:none}
+.chips button{background:transparent;font-size:.78rem;padding:7px 14px}.chips button.on{background:#27344f;border-color:var(--blue)}
+.filtros{max-width:1100px;margin:2px auto 0;padding:0 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.8rem;color:var(--mut)}
+.filtros button{background:none;border:0;color:#7db0ff;font:inherit;cursor:pointer;text-decoration:underline;padding:0}
+.banner{max-width:1100px;margin:10px auto;padding:14px;background:linear-gradient(135deg,#142038,#1b1733);border:1px solid var(--line);border-radius:16px;display:flex;align-items:center;gap:14px;width:calc(100% - 28px)}
+.banner .lg{width:84px;height:60px;flex:none}.banner h2{margin:0;font-size:1.15rem}.banner small{color:var(--mut)}.banner .sp{flex:1}
+.sec{max-width:1100px;margin:20px auto 8px;padding:0 14px;font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.sec small{color:var(--mut);font-weight:400;font-size:.75rem}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:6px 14px;max-width:1100px;margin:auto}
-.pc{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:4px}
-.pc img,.pimg{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#1b2740;display:flex;align-items:center;justify-content:center;font-size:2.4rem}
-.pn{font-size:.88rem;font-weight:600;min-height:2.4em;line-height:1.2}.pp{font-size:1rem}small{color:var(--mut)}
+.pc{background:var(--pan);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:4px;animation:in .35s ease both;transition:.18s}
+.pc:hover{border-color:#34476b;transform:translateY(-2px)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.ph{position:relative;cursor:pointer;border-radius:10px;overflow:hidden;background:#1b2740;aspect-ratio:1}
+.ph>img,.pimg{width:100%;height:100%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:2.4rem}
+.mb{position:absolute;top:6px;left:6px;width:38px;height:28px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px #0006;color:#1c2433;font-size:.6rem;font-weight:800;overflow:hidden}
+.mb img{max-width:88%;max-height:86%;object-fit:contain}
+.pn{font-size:.88rem;font-weight:600;line-height:1.2;min-height:2.4em}.mn{color:var(--mut);font-size:.7rem;letter-spacing:.04em;text-transform:uppercase}
+.pp{font-size:1.02rem}small{color:var(--mut)}
 .add{margin-top:4px;background:transparent;border:1.5px solid #cbd5e1;color:var(--tx);border-radius:99px;padding:8px;font:inherit;font-weight:700;font-size:.8rem;cursor:pointer;width:100%}
 .add:hover{background:var(--blue);border-color:var(--blue)}
 .qt{display:flex;align-items:center;justify-content:space-between;margin-top:4px;background:var(--blue);border-radius:99px;padding:3px}
 .qt button{width:30px;height:30px;border:0;border-radius:50%;background:#0003;color:#fff;font-size:1.1rem;cursor:pointer}
-.bar{position:fixed;left:0;right:0;bottom:0;background:#0f1521;border-top:1px solid var(--line);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sk{height:250px;border-radius:14px;background:linear-gradient(90deg,#131b29 25%,#1a2438 50%,#131b29 75%);background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#0f1521;border-top:1px solid var(--line);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;z-index:15}
 .btn{background:var(--blue);color:#fff;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:600;cursor:pointer}
 .bk{position:fixed;inset:0;background:#000a;display:flex;align-items:flex-end;justify-content:center;z-index:20}
-.sheet{background:var(--bg);border:1px solid var(--line);width:100%;max-width:520px;border-radius:14px 14px 0 0;padding:16px;max-height:90vh;overflow:auto}
-.inp{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#0e1626;color:var(--tx);margin:5px 0}
+.sheet{background:var(--bg);border:1px solid var(--line);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:16px;max-height:92vh;overflow:auto}
 .row{display:flex;justify-content:space-between;gap:8px;padding:6px 0}
 .mut{color:var(--mut);text-align:center;padding:30px 14px}
-.srch{padding:4px 14px;max-width:1100px;margin:auto}.srch .inp{margin:6px 0}
-.ask-link{color:#7db0ff;font-size:.8rem;text-decoration:none;display:inline-block;margin-top:8px}
-.ask{max-width:1100px;margin:22px 14px 0;padding:18px;text-align:center;background:var(--pan);border:1px dashed #3a4a6b;border-radius:14px}
-.ask p,.nota{color:var(--mut);margin:6px 0 12px;font-size:.88rem}.ask .btn{padding:11px 18px}
-.chips.sub{padding-top:0}.chips.sub button{font-size:.78rem;background:transparent}.chips.sub button.on{background:#27344f;border-color:#3b82f6}
-.sec{max-width:1100px;margin:18px auto 6px;padding:0 14px;font-weight:800;font-size:1.02rem}
+.nota{color:var(--mut);margin:6px 0 12px;font-size:.88rem}
+.ask{max-width:1100px;margin:26px 14px 0;padding:18px;text-align:center;background:var(--pan);border:1px dashed #3a4a6b;border-radius:14px}
+@media(min-width:1130px){.ask{margin:26px auto 0}}
+.ask p{color:var(--mut);margin:6px 0 12px;font-size:.88rem}
+.det img.big{width:100%;border-radius:12px;aspect-ratio:1;object-fit:cover;background:#1b2740}.det .lg{width:84px;height:56px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}}
 </style>
 </head>
 <body>
-<header><h1>ROZIVALDO STORE</h1><small>MODA · LINGERIE · SEX SHOP</small><br><a class="ask-link" href="#" onclick="abrirSug();return false">💡 Não achou o que queria? Peça aqui</a></header>
-<div class="srch"><input id="q" class="inp" type="search" placeholder="🔎 Buscar produto ou código" oninput="Q=this.value;desenha()"></div>
-<div class="chips" id="chips"></div>
-<div class="chips sub" id="subchips"></div>
-<div id="grid"></div>
+<header class="top">
+  <div class="brand"><svg viewBox="0 0 64 64" width="46" height="46"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#cbd5e1" stroke-width="2.5"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#3b82f6" font-family="sans-serif">R</text></svg>
+  <div><h1>ROZIVALDO STORE</h1><small>MODA · LINGERIE · SEX SHOP</small></div></div><br>
+  <a class="ask-link" href="#" onclick="abrirSug();return false">💡 Não achou o que queria? Peça aqui</a>
+</header>
+<div class="srch"><input id="q" class="inp" type="search" placeholder="🔎 Buscar produto, marca ou código" oninput="Q=this.value;desenha()"></div>
+<nav class="areas" id="chips"></nav>
+<div class="lbl" id="lblm" hidden>Navegue por marca</div>
+<div class="strip" id="brands"></div>
+<div class="lbl" id="lblc" hidden>Categorias</div>
+<div class="chips" id="subchips"></div>
+<div class="filtros" id="filtros"></div>
+<main id="grid"><div class="grid"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></main>
 <div class="ask" id="ask"><b>Não encontrou o que procura?</b><p>Conte pra gente o que você quer e vamos tentar trazer! 💜</p><button class="btn" onclick="abrirSug(Q)">💡 Pedir um produto</button></div>
 <div class="bar" id="bar" hidden><div><small id="bn"></small><b id="bt" style="display:block;font-size:1.1rem"></b></div><button class="btn" onclick="abrir()">Finalizar pedido</button></div>
 <div id="modal"></div>
@@ -55,41 +93,71 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const R = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let P = [], cart = {}, cat = 'Todos', Q = '';
+let P = [], SC = [], MC = [], cart = {}, cat = 'Todos', marca = '', sub = '', Q = '';
 const nz = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const sku = p => p.sku || 'RS' + String(p.id).replace(/-/g, '').slice(0, 8).toUpperCase();
-
-let SC = [], sub = '';
 const IC = { Masculino: '👔', Feminino: '👗', Lingerie: '💗', Sexshop: '🔥' };
+const mById = id => MC.find(m => m.id == id);
+const logoM = m => m.logo ? `<img src="${esc(m.logo)}" alt="${esc(m.nome)}" loading="lazy">` : esc(m.nome.slice(0, 2).toUpperCase());
+
 async function init() {
-  const [r, s] = await Promise.all([db.from('produtos').select('*').eq('vitrine', true).order('nome'), db.from('subcategorias').select('*').order('nome')]);
+  const [r, s, m] = await Promise.all([db.from('produtos').select('*').eq('vitrine', true).order('nome'), db.from('subcategorias').select('*').order('nome'), db.from('marcas').select('*').order('nome')]);
   if (r.error) { $('#grid').innerHTML = '<p class="mut">Não foi possível carregar o catálogo agora.</p>'; return; }
-  P = r.data || []; SC = s.data || []; desenha();
+  P = r.data || []; SC = s.data || []; MC = m.data || [];
+  desenha();
 }
-const subsPresentes = a => {
-  const l = P.filter(p => p.categoria == a), ord = SC.filter(s => s.area == a).map(s => s.nome);
+const doArea = () => P.filter(p => cat == 'Todos' || p.categoria == cat);
+function subsPresentes() {
+  const l = doArea().filter(p => !marca || p.marca_id == marca), ord = SC.filter(s => cat == 'Todos' || s.area == cat).map(s => s.nome);
   const extra = [...new Set(l.map(p => p.subcategoria).filter(Boolean))].filter(n => !ord.includes(n));
-  return [...ord, ...extra].filter(n => l.some(p => p.subcategoria == n));
-};
-const card = p => `<div class="pc">${p.foto ? `<img src="${p.foto}" alt="">` : '<div class="pimg">🛍️</div>'}
-    <b class="pn">${esc(p.nome)}</b><b class="pp">${R(p.preco)}</b><small>SKU: ${esc(sku(p))}</small>
+  return [...new Set([...ord, ...extra])].filter(n => l.some(p => p.subcategoria == n));
+}
+const card = p => {
+  const m = mById(p.marca_id);
+  return `<div class="pc"><div class="ph" onclick="detalhe('${p.id}')">${p.foto ? `<img src="${p.foto}" alt="${esc(p.nome)}" loading="lazy">` : '<div class="pimg">🛍️</div>'}${m ? `<span class="mb">${logoM(m)}</span>` : ''}</div>
+    <b class="pn">${esc(p.nome)}</b>${m ? `<small class="mn">${esc(m.nome)}</small>` : ''}<b class="pp">${R(p.preco)}</b>
     ${cart[p.id] ? `<div class="qt"><button onclick="mud('${p.id}',-1)">−</button><b>${cart[p.id]}</b><button onclick="mud('${p.id}',1)">+</button></div>` : `<button class="add" onclick="mud('${p.id}',1)">ADICIONAR +</button>`}</div>`;
+};
+function pickArea(k) { cat = k; sub = ''; if (marca && !doArea().some(p => p.marca_id == marca)) marca = ''; desenha(); window.scrollTo({ top: 0 }); }
+function pickMarca(id) { marca = id; sub = ''; desenha(); }
+function limpa() { marca = ''; sub = ''; Q = ''; $('#q').value = ''; desenha(); }
 function desenha() {
   const areas = CATS.filter(k => P.some(p => p.categoria == k));
   if (cat != 'Todos' && !areas.includes(cat)) { cat = 'Todos'; sub = ''; }
-  $('#chips').innerHTML = ['Todos', ...areas].map(k => `<button class="${k == cat ? 'on' : ''}" onclick="cat='${k}';sub='';desenha()">${k == 'Todos' ? 'Todos' : IC[k] + ' ' + k}</button>`).join('');
-  const subs = cat == 'Todos' ? [] : subsPresentes(cat), temOutros = subs.length && P.some(p => p.categoria == cat && !p.subcategoria);
+  $('#chips').innerHTML = ['Todos', ...areas].map(k => `<button class="${k == cat ? 'on' : ''}" onclick="pickArea('${k}')">${k == 'Todos' ? '✨ Todos' : IC[k] + ' ' + k}</button>`).join('');
+  // marcas (da área escolhida)
+  const al = doArea(), mv = MC.map(m => ({ m, n: al.filter(p => p.marca_id == m.id).length })).filter(x => x.n);
+  if (marca && !mv.some(x => x.m.id == marca)) marca = '';
+  $('#lblm').hidden = !mv.length;
+  $('#brands').innerHTML = mv.length ? `<button class="bt ${!marca ? 'on' : ''}" onclick="pickMarca('')"><span class="lg todas">✨</span><small>Todas</small></button>` + mv.map(({ m, n }) => `<button class="bt ${m.id == marca ? 'on' : ''}" onclick="pickMarca('${m.id}')"><span class="lg">${logoM(m)}</span><small>${esc(m.nome)} · ${n}</small></button>`).join('') : '';
+  // categorias
+  const subs = subsPresentes(), temOutros = subs.length && doArea().some(p => (!marca || p.marca_id == marca) && !p.subcategoria);
   if (sub && sub != '__outros' && !subs.includes(sub)) sub = '';
+  $('#lblc').hidden = !subs.length;
   $('#subchips').innerHTML = subs.length ? ['', ...subs, ...(temOutros ? ['__outros'] : [])].map(n => `<button class="${n == sub ? 'on' : ''}" data-s="${esc(n)}" onclick="sub=this.dataset.s;desenha()">${n === '' ? 'Todas' : n == '__outros' ? 'Outros' : esc(n)}</button>`).join('') : '';
-  const q = Q.trim(), l = P.filter(p => (cat == 'Todos' || p.categoria == cat) && (!sub || (sub == '__outros' ? !p.subcategoria : p.subcategoria == sub)) && (!q || nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '')).includes(nz(q))));
-  const sec = (t, arr) => arr.length ? `<div class="sec">${t}</div><div class="grid">${arr.map(card).join('')}</div>` : '';
+  // filtros ativos
+  const q = Q.trim(), mm = mById(marca);
+  $('#filtros').innerHTML = marca || sub || q ? `<span>Filtrando:</span>${cat != 'Todos' ? `<b>${cat}</b>` : ''}${mm ? `<b>${esc(mm.nome)}</b>` : ''}${sub ? `<b>${sub == '__outros' ? 'Outros' : esc(sub)}</b>` : ''}${q ? `<b>“${esc(q)}”</b>` : ''}<button onclick="limpa()">Limpar filtros</button>` : '';
+  // produtos
+  const l = P.filter(p => (cat == 'Todos' || p.categoria == cat) && (!marca || p.marca_id == marca) && (!sub || (sub == '__outros' ? !p.subcategoria : p.subcategoria == sub)) && (!q || nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '') + ' ' + ((mById(p.marca_id) || {}).nome || '')).includes(nz(q))));
+  const sec = (t, arr) => arr.length ? `<div class="sec">${t} <small>${arr.length} ${arr.length == 1 ? 'produto' : 'produtos'}</small></div><div class="grid">${arr.map(card).join('')}</div>` : '';
+  const banner = mm && !q ? `<div class="banner"><span class="lg">${logoM(mm)}</span><div><h2>${esc(mm.nome)}</h2><small>${l.length} ${l.length == 1 ? 'produto' : 'produtos'}${(mm.areas || []).length ? ' · ' + mm.areas.map(a => IC[a] + ' ' + a).join(' · ') : ''}</small></div><span class="sp"></span></div>` : '';
   let html;
   if (q || sub) html = l.length ? `<div class="grid">${l.map(card).join('')}</div>` : '';
   else if (cat == 'Todos') html = areas.map(k => sec(IC[k] + ' ' + k, l.filter(p => p.categoria == k))).join('');
   else html = subs.length ? subs.map(n => sec(esc(n), l.filter(p => p.subcategoria == n))).join('') + sec('Outros', l.filter(p => !p.subcategoria)) : `<div class="grid">${l.map(card).join('')}</div>`;
-  $('#grid').innerHTML = html || `<div class="mut">${q ? 'Nenhum produto encontrado para “' + esc(q) + '”.' : 'Nenhum produto disponível no momento.'}<br><br><button class="btn" onclick="abrirSug(Q)">💡 Pedir ${q ? 'este produto' : 'um produto'}</button></div>`;
+  $('#grid').innerHTML = banner + (html || `<div class="mut">${q ? 'Nenhum produto encontrado para “' + esc(q) + '”.' : 'Nenhum produto disponível no momento.'}<br><br><button class="btn" onclick="abrirSug(Q)">💡 Pedir ${q ? 'este produto' : 'um produto'}</button></div>`);
   const n = Object.values(cart).reduce((a, b) => a + b, 0), t = total();
   $('#bar').hidden = !n; $('#bn').textContent = n + (n == 1 ? ' item' : ' itens'); $('#bt').textContent = R(t);
+}
+function detalhe(id) {
+  const p = P.find(x => x.id == id); if (!p) return;
+  const m = mById(p.marca_id);
+  $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet det">${p.foto ? `<img class="big" src="${p.foto}" alt="${esc(p.nome)}">` : ''}
+  <div class="row" style="align-items:center;margin-top:8px">${m ? `<span class="lg">${logoM(m)}</span>` : '<span></span>'}<b style="font-size:1.4rem">${R(p.preco)}</b></div>
+  <h2 style="margin:6px 0 2px">${esc(p.nome)}</h2>
+  <small>${IC[p.categoria] || ''} ${p.categoria}${p.subcategoria ? ' › ' + esc(p.subcategoria) : ''}${m ? ' · ' + esc(m.nome) : ''} · SKU ${esc(sku(p))}</small>
+  <button class="btn" style="width:100%;margin-top:14px" onclick="mud('${p.id}',1);fecha()">Adicionar ao pedido${cart[p.id] ? ' (' + cart[p.id] + ' no pedido)' : ''}</button></div></div>`;
 }
 const total = () => P.reduce((t, p) => t + (cart[p.id] || 0) * Number(p.preco), 0);
 function mud(id, d) { cart[id] = (cart[id] || 0) + d; if (cart[id] <= 0) delete cart[id]; desenha(); }

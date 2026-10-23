@@ -9,12 +9,12 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [] }, cur = 'inicio', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [], mc: [] }, cur = 'inicio', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
 async function load() {
-  const [c, v, p, pr, pa, ct, pd, sg, sc] = await Promise.all([
+  const [c, v, p, pr, pa, ct, pd, sg, sc, mc] = await Promise.all([
     db.from('clientes').select('*').order('nome'),
     db.from('vendas').select('*, itens_venda(*)').order('data', { ascending: false }),
     db.from('pagamentos').select('*').order('criado_em', { ascending: false }),
@@ -23,9 +23,10 @@ async function load() {
     db.from('contas').select('*'),
     db.from('pedidos').select('*').order('criado_em', { ascending: false }).limit(300),
     db.from('sugestoes').select('*').order('criado_em', { ascending: false }),
-    db.from('subcategorias').select('*').order('nome')
+    db.from('subcategorias').select('*').order('nome'),
+    db.from('marcas').select('*').order('nome')
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [], mc: mc.data || [] };
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
@@ -46,6 +47,76 @@ function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== MARCAS / FORNECEDORES ===== */
+let CF = { m: '' };
+const marcaDe = p => (S.mc || []).find(m => m.id == p.marca_id);
+const mlogo = m => `<span class="mlg">${m.logo ? `<img src="${esc(m.logo)}" alt="">` : esc(m.nome.slice(0, 2).toUpperCase())}</span>`;
+function redimLogo(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => { const im = new Image(); im.onload = () => { const k = Math.min(1, 360 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/png')); }; im.onerror = rej; im.src = r.result; };
+    r.onerror = rej; r.readAsDataURL(file);
+  });
+}
+function formMarcas() {
+  modal(`<h2>🏷️ Marcas e fornecedores</h2><p class="mut">Cadastre as marcas com que você trabalha. No catálogo, o cliente navega por elas e pelas categorias.</p>
+  ${(S.mc || []).map(m => { const q = S.pr.filter(p => p.marca_id == m.id).length; return `<div class="card row"><span style="display:flex;gap:10px;align-items:center">${mlogo(m)}<span><b>${esc(m.nome)}</b><small class="blk">${(m.areas || []).map(a => IC[a] + ' ' + a).join(' · ') || 'Sem área'} · ${q} ${q == 1 ? 'produto' : 'produtos'}</small></span></span><span><button class="lnk" onclick="formMarcaProds('${m.id}')">Produtos</button><button class="lnk" onclick="formMarca('${m.id}')">Editar</button><button class="lnk red" onclick="excluiMarca('${m.id}')">Excluir</button></span></div>`; }).join('') || '<p class="mut">Nenhuma marca ainda.</p>'}
+  <button class="btn w" onclick="formMarca()">+ Nova marca / fornecedor</button>`);
+}
+function formMarca(id) {
+  const m = (S.mc || []).find(x => x.id == id) || { areas: [] };
+  modal(`<h2>${id ? 'Editar' : 'Nova'} marca / fornecedor</h2><form onsubmit="salvaMarca(event,'${id || ''}')">
+  <input class="inp" name="nome" maxlength="40" placeholder="Nome da marca" value="${esc(m.nome)}" required>
+  <small>Em quais áreas você trabalha com ela?</small>
+  <div class="tiles" style="grid-template-columns:1fr 1fr">${CATS.map(k => `<label class="tile" style="flex-direction:row;justify-content:center;gap:8px"><input type="checkbox" name="areas" value="${k}" ${(m.areas || []).includes(k) ? 'checked' : ''}>${IC[k]} ${k}</label>`).join('')}</div>
+  ${m.logo ? `<div style="margin:6px 0">${mlogo(m)} <small>Logo atual. Escolha outra imagem abaixo só se quiser trocar.</small></div>` : ''}
+  <label><small>Logo da marca (imagem PNG ou JPG)</small><input class="inp" name="logo" type="file" accept="image/*"></label>
+  <button class="btn w">Salvar marca</button><button type="button" class="btn alt w" style="margin-top:8px" onclick="formMarcas()">Voltar</button></form>`);
+}
+async function salvaMarca(e, id) {
+  e.preventDefault();
+  const fd = new FormData(e.target), nome = fd.get('nome').trim().replace(/\s+/g, ' '), areas = fd.getAll('areas');
+  if (!areas.length) return toast('Escolha ao menos uma área');
+  if ((S.mc || []).some(m => nz(m.nome) == nz(nome) && m.id != id)) return toast('Já existe uma marca com esse nome');
+  const d = { nome, areas }, file = fd.get('logo');
+  if (file && file.size) { try { d.logo = await redimLogo(file); } catch (x) { return toast('Não consegui ler essa imagem'); } }
+  const r = id ? await db.from('marcas').update(d).eq('id', id) : await db.from('marcas').insert(d);
+  if (r.error) return toast('Erro: ' + r.error.message);
+  await load(); render(); formMarcas(); toast('Marca salva');
+}
+async function excluiMarca(id) {
+  const m = S.mc.find(x => x.id == id); if (!m) return;
+  const q = S.pr.filter(p => p.marca_id == id).length;
+  if (!confirm(`Excluir a marca "${m.nome}"?${q ? `\n\nOs ${q} produtos continuam no catálogo, só ficam sem marca.` : ''}`)) return;
+  const { error } = await db.from('marcas').delete().eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); formMarcas(); toast('Marca excluída');
+}
+function formMarcaProds(id) {
+  const m = S.mc.find(x => x.id == id); if (!m) return;
+  const l = S.pr.filter(p => !(m.areas || []).length || m.areas.includes(p.categoria));
+  modal(`<h2>Produtos de ${esc(m.nome)}</h2><p class="mut">Marque os produtos que são desta marca.</p>
+  <form onsubmit="salvaMarcaProds(event,'${id}')"><button type="button" class="lnk" onclick="document.querySelectorAll('#modal [name=p]').forEach(c => c.checked = true)">Marcar todos</button>
+  ${l.map(p => `<label class="card row"><span style="display:flex;gap:10px;align-items:center">${foto(p)}<span>${esc(p.nome)}<small class="blk">${IC[p.categoria]} ${p.categoria}${p.marca_id && p.marca_id != id ? ' · hoje: ' + esc((marcaDe(p) || {}).nome || '') : ''}</small></span></span><input type="checkbox" name="p" value="${p.id}" ${p.marca_id == id ? 'checked' : ''}></label>`).join('') || '<p class="mut">Nenhum produto nas áreas desta marca.</p>'}
+  <button class="btn w">Salvar</button><button type="button" class="btn alt w" style="margin-top:8px" onclick="formMarcas()">Voltar</button></form>`);
+}
+async function salvaMarcaProds(e, id) {
+  e.preventDefault();
+  const cs = [...e.target.querySelectorAll('[name=p]')], on = cs.filter(x => x.checked).map(x => x.value);
+  const off = cs.filter(x => !x.checked && (S.pr.find(p => p.id == x.value) || {}).marca_id == id).map(x => x.value);
+  if (on.length) { const r = await db.from('produtos').update({ marca_id: id }).in('id', on); if (r.error) return toast('Erro: ' + r.error.message); }
+  if (off.length) await db.from('produtos').update({ marca_id: null }).in('id', off);
+  await load(); render(); formMarcas(); toast('Produtos atualizados');
+}
+function marcaOpts(sel) {
+  const f = document.querySelector('#modal form'), a = f.categoria.value, l = (S.mc || []).filter(m => (m.areas || []).includes(a)), at = sel && (S.mc || []).find(m => m.id == sel);
+  f.marca.innerHTML = '<option value="">Sem marca</option>' + l.map(m => `<option value="${m.id}" ${m.id == sel ? 'selected' : ''}>${esc(m.nome)}</option>`).join('') + (at && !l.some(m => m.id == sel) ? `<option value="${at.id}" selected>${esc(at.nome)}</option>` : '') + '<option value="__nova">➕ Criar nova marca…</option>';
+  marcaNova();
+}
+function marcaNova() {
+  const f = document.querySelector('#modal form'), on = f.marca.value == '__nova';
+  f.nova_marca.hidden = !on; f.nova_marca.required = on; if (on) f.nova_marca.focus();
+}
 /* ===== PEDIDOS DE PRODUTOS (o que o cliente procurou e você não tem) ===== */
 let PR = { f: 'novas' }, PREPROD = null;
 const SGT = { novas: ['nova'], avaliando: ['analise'], comprar: ['viavel'], atendidas: ['atendida', 'avisada'], descartadas: ['descartada'] };
@@ -192,10 +263,10 @@ function reativar(id) {
   render(); toast('Mensagem aberta no WhatsApp');
 }
 /* ===== VENDA COM FOTO DO PRODUTO ===== */
-let VP = { q: '', cat: 'Todos', sub: '' };
+let VP = { q: '', cat: 'Todos', sub: '', marca: '' };
 const vitrineVenda = () => S.pr.length ? `<div class="card"><small>📸 Toque na foto para adicionar (toque de novo para somar mais um)</small>
   <input class="inp" id="vpq" placeholder="Buscar produto ou código SKU" oninput="VP.q=this.value;vpDesenha()" onkeydown="if(event.key=='Enter')event.preventDefault()">
-  <div class="fchips" id="vpc"></div><div class="fchips" id="vps"></div><div class="vpg" id="vpg"></div></div>` : '';
+  <div class="fchips" id="vpc"></div><div class="fchips" id="vpm"></div><div class="fchips" id="vps"></div><div class="vpg" id="vpg"></div></div>` : '';
 function vpBadges() {
   const g = $('#vpg'); if (!g) return;
   const m = {};
@@ -205,10 +276,12 @@ function vpBadges() {
 function vpDesenha() {
   const c = $('#vpc'), g = $('#vpg'); if (!c || !g) return;
   const cats = ['Todos', ...CATS.filter(k => S.pr.some(p => p.categoria == k))], q = nz(VP.q);
-  c.innerHTML = cats.map(k => `<button type="button" class="vpcat ${VP.cat == k ? 'on' : ''}" onclick="VP.cat='${k}';VP.sub='';vpDesenha()">${k}</button>`).join('');
+  c.innerHTML = cats.map(k => `<button type="button" class="vpcat ${VP.cat == k ? 'on' : ''}" onclick="VP.cat='${k}';VP.sub='';VP.marca='';vpDesenha()">${k}</button>`).join('');
   const sc = VP.cat == 'Todos' ? [] : [...new Set(S.pr.filter(p => p.categoria == VP.cat && p.subcategoria).map(p => p.subcategoria))], vs = $('#vps');
   if (vs) vs.innerHTML = sc.length ? ['', ...sc].map(n => `<button type="button" class="vpcat ${VP.sub == n ? 'on' : ''}" data-s="${esc(n)}" onclick="VP.sub=this.dataset.s;vpDesenha()">${n === '' ? 'Todas' : esc(n)}</button>`).join('') : '';
-  const l = S.pr.filter(p => (VP.cat == 'Todos' || p.categoria == VP.cat) && (!VP.sub || p.subcategoria == VP.sub) && (!q || nz(p.nome + ' ' + skuDe(p) + ' ' + (p.subcategoria || '')).includes(q)));
+  const mc = VP.cat == 'Todos' ? [] : S.mc.filter(m => S.pr.some(p => p.categoria == VP.cat && p.marca_id == m.id)), vm = $('#vpm');
+  if (vm) vm.innerHTML = mc.length ? [['', 'Todas as marcas'], ...mc.map(m => [m.id, m.nome])].map(([v, t]) => `<button type="button" class="vpcat ${VP.marca == v ? 'on' : ''}" data-m="${v}" onclick="VP.marca=this.dataset.m;vpDesenha()">${esc(t)}</button>`).join('') : '';
+  const l = S.pr.filter(p => (VP.cat == 'Todos' || p.categoria == VP.cat) && (!VP.sub || p.subcategoria == VP.sub) && (!VP.marca || p.marca_id == VP.marca) && (!q || nz(p.nome + ' ' + skuDe(p) + ' ' + (p.subcategoria || '') + ' ' + ((marcaDe(p) || {}).nome || '')).includes(q)));
   g.innerHTML = l.map(p => `<div class="vpt" data-pid="${p.id}" onclick="vpAdd('${p.id}')">${imgProd(p)}<b class="pn">${esc(p.nome)}</b><b class="pp">${R(p.preco)}</b><span class="vpb" hidden></span><button type="button" class="vpm" hidden onclick="event.stopPropagation();vpMenos('${p.id}')">−</button></div>`).join('') || '<small>Nenhum produto encontrado.</small>';
   vpBadges();
 }
@@ -740,17 +813,19 @@ function pick(sel) {
 /* ===== CATEGORIAS DENTRO DE CADA ÁREA ===== */
 const subsDe = a => (S.sc || []).filter(s => s.area == a).map(s => s.nome);
 function linhaProd(p) {
-  return `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}${p.custo != null && p.preco > 0 ? ` · custo ${R(p.custo)} · margem ${pct((p.preco - p.custo) / p.preco)}` : ''}</small></b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`;
+  return `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}${marcaDe(p) ? ' · ' + esc(marcaDe(p).nome) : ''}${p.custo != null && p.preco > 0 ? ` · custo ${R(p.custo)} · margem ${pct((p.preco - p.custo) / p.preco)}` : ''}</small></b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`;
 }
 function catalogo() {
+  const PRL = S.pr.filter(p => !CF.m || (CF.m == '__sem' ? !p.marca_id : p.marca_id == CF.m));
   const area = k => {
-    const l = S.pr.filter(p => p.categoria == k), nomes = [...new Set([...subsDe(k), ...l.map(p => p.subcategoria).filter(Boolean)])];
+    const l = PRL.filter(p => p.categoria == k), nomes = [...new Set([...subsDe(k), ...l.map(p => p.subcategoria).filter(Boolean)])];
     const bloco = (t, arr, vazio) => arr.length || vazio ? `<h3 class="subt">${esc(t)} <small>(${arr.length})</small></h3>` + arr.map(linhaProd).join('') : '';
     return l.length || nomes.length ? `<h2>${IC[k]} ${k}</h2>` + nomes.map(n => bloco(n, l.filter(p => p.subcategoria == n), true)).join('') + bloco(nomes.length ? 'Sem categoria' : 'Produtos', l.filter(p => !p.subcategoria || !nomes.includes(p.subcategoria))) : '';
   };
-  return `<div class="row"><h1>Catálogo</h1><span><button class="btn alt" onclick="formCats()">🗂️ Categorias</button> <button class="btn" onclick="formProd()">+ Novo produto</button></span></div>
+  return `<div class="row"><h1>Catálogo</h1><span><button class="btn alt" onclick="formMarcas()">🏷️ Marcas</button> <button class="btn alt" onclick="formCats()">🗂️ Categorias</button> <button class="btn" onclick="formProd()">+ Novo produto</button></span></div>
   <div class="card"><small>🔗 Link da vitrine para seus clientes</small><b class="blk" style="word-break:break-all">${LINK()}</b>
   <div class="row" style="margin-top:8px"><button class="btn" onclick="copiaLink()">Copiar link</button><a class="btn alt" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Veja nosso catálogo: ' + LINK())}">Enviar no WhatsApp</a></div></div>
+  ${S.mc.length ? `<div class="fchips">${[['', 'Todas as marcas'], ...S.mc.map(m => [m.id, m.nome]), ['__sem', 'Sem marca']].map(([v, t]) => `<button class="vpcat ${CF.m == v ? 'on' : ''}" onclick="CF.m='${v}';render()">${esc(t)}</button>`).join('')}</div>` : ''}
   ${CATS.map(area).join('')}
   ${S.pr.length ? '' : '<p class="mut">Catálogo vazio. Cadastre seus produtos para escolher na hora da venda.</p>'}`;
 }
@@ -802,9 +877,11 @@ function formProd(id) {
   const pp = PREPROD; modal(`<h2>${id ? 'Editar' : 'Novo'} produto</h2><form onsubmit="salvaProd(event,'${id || ''}')">
   <input class="inp" name="nome" placeholder="Nome do produto" value="${esc(p.nome)}" required>
   <input class="inp" name="sku" placeholder="Código SKU (vazio = gerar automático)" value="${esc(p.sku)}">
-  <select class="inp" name="categoria" onchange="subOpts()">${opts(CATS)}</select>
+  <select class="inp" name="categoria" onchange="subOpts();marcaOpts()">${opts(CATS)}</select>
   <select class="inp" name="subcategoria" onchange="subNova()"></select>
   <input class="inp" name="nova_sub" maxlength="40" placeholder="Nome da nova categoria (ex: Camisas)" hidden>
+  <select class="inp" name="marca" onchange="marcaNova()"></select>
+  <input class="inp" name="nova_marca" maxlength="40" placeholder="Nome da nova marca / fornecedor" hidden>
   <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de venda (R$)" value="${p.preco ?? ''}" required>
   <input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de custo (R$) — quanto você pagou" value="${p.custo ?? ''}">
   <label><small>Foto (opcional)</small><input class="inp" name="foto" type="file" accept="image/*"></label>
@@ -812,7 +889,7 @@ function formProd(id) {
   <button class="btn w">Salvar produto</button></form>`);
   PREPROD = pp;
   if (p.categoria) document.querySelector('#modal [name=categoria]').value = p.categoria;
-  subOpts(p.subcategoria);
+  subOpts(p.subcategoria); marcaOpts(p.marca_id);
 }
 async function salvaProd(e, id) {
   e.preventDefault();
@@ -826,6 +903,16 @@ async function salvaProd(e, id) {
     else if (sub) { const r = await db.from('subcategorias').insert({ area: d.categoria, nome: sub }); if (r.error) return toast('Erro: ' + r.error.message); }
   }
   d.subcategoria = sub || null;
+  let mid = fd.get('marca') || null;
+  if (mid == '__nova') {
+    const nm = (fd.get('nova_marca') || '').trim().replace(/\s+/g, ' '); mid = null;
+    if (nm) {
+      const ex = S.mc.find(m => nz(m.nome) == nz(nm));
+      if (ex) { mid = ex.id; if (!(ex.areas || []).includes(d.categoria)) await db.from('marcas').update({ areas: [...(ex.areas || []), d.categoria] }).eq('id', ex.id); }
+      else { const r = await db.from('marcas').insert({ nome: nm, areas: [d.categoria] }).select().single(); if (r.error) return toast('Erro: ' + r.error.message); mid = r.data.id; }
+    }
+  }
+  d.marca_id = mid;
   const file = fd.get('foto'); if (file && file.size) d.foto = await redim(file);
   const { error } = id ? await db.from('produtos').update(d).eq('id', id) : await db.from('produtos').insert(d);
   if (error) return toast('Erro: ' + error.message);
@@ -1171,7 +1258,7 @@ function fillRow(row, i) {
   if (i.custo != null) row.querySelector('[name=custo]').value = Number(i.custo).toFixed(2);
 }
 function iniciaVenda() {
-  PKEY = ''; PDATES = []; VP = { q: '', cat: 'Todos', sub: '' }; vpDesenha();
+  PKEY = ''; PDATES = []; VP = { q: '', cat: 'Todos', sub: '', marca: '' }; vpDesenha();
   if (EDIT) { AUTO = null; return carregaEdicao(); }
   if (PRE) { PEDIDO = PRE.pedido; PRE.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); }); PRE = null; toast(PEDIDO ? 'Pedido carregado. Confira e registre a venda.' : 'Produto adicionado. Escolha o cliente e registre a venda.'); }
   else { PEDIDO = null; addItem(); }

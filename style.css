@@ -125,3 +125,7 @@ aside .mic{margin-left:auto;color:#ec4899}aside .mic .ic{width:16px;height:16px}
 
 /* Categorias */
 .subt{font-size:.85rem;font-weight:600;color:#9fb0cf;margin:12px 0 2px}.subt small{color:var(--mut);font-weight:400}
+
+/* Marcas */
+.mlg{width:58px;height:40px;flex:none;background:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;font-weight:800;color:#1c2433;vertical-align:middle}
+.mlg img{max-width:90%;max-height:88%;object-fit:contain}
