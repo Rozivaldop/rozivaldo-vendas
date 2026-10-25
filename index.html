@@ -32,6 +32,7 @@
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4zM10 21h4"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
 </svg>
@@ -56,6 +57,7 @@
     <button data-nav="dash" onclick="go('dash')"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</button>
     <button data-nav="clientes" onclick="go('clientes')"><svg class="ic"><use href="#i-user"/></svg>Clientes</button>
     <button data-nav="procuras" onclick="PR.f='novas';go('procuras')"><svg class="ic"><use href="#i-search"/></svg>Pedidos de produtos<span id="sbadge" class="nb" hidden></span></button>
+    <button data-nav="notas" onclick="NF.f='prazo';go('notas')"><svg class="ic"><use href="#i-doc"/></svg>Notas fiscais<span id="nfbadge" class="nb" hidden></span></button>
 
     <details><summary><svg class="ic"><use href="#i-book"/></svg>Catálogo</summary>
       <button data-nav="catalogo" onclick="go('catalogo')"><svg class="ic"><use href="#i-share"/></svg>Catálogo Digital Inteligente</button>
@@ -86,6 +88,7 @@
     <header id="top">
       <button class="burger" onclick="menu()">☰</button>
       <span class="tb-brand">ROZIVALDO STORE</span>
+      <button class="bell eye" id="eyeTop" title="Mostrar custos e lucros" onclick="ocToggle()"></button>
       <button class="bell" onclick="avisos()" title="Notificações"><svg class="ic" style="width:20px;height:20px"><use href="#i-bell"/></svg><b id="pbadge" hidden></b></button>
       <button class="avatar" onclick="go('ajustes')" title="Configurações">R</button>
     </header>

@@ -9,12 +9,12 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [], mc: [] }, cur = 'inicio', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [], mc: [], nf: [] }, cur = 'inicio', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
 async function load() {
-  const [c, v, p, pr, pa, ct, pd, sg, sc, mc] = await Promise.all([
+  const [c, v, p, pr, pa, ct, pd, sg, sc, mc, nf] = await Promise.all([
     db.from('clientes').select('*').order('nome'),
     db.from('vendas').select('*, itens_venda(*)').order('data', { ascending: false }),
     db.from('pagamentos').select('*').order('criado_em', { ascending: false }),
@@ -24,9 +24,10 @@ async function load() {
     db.from('pedidos').select('*').order('criado_em', { ascending: false }).limit(300),
     db.from('sugestoes').select('*').order('criado_em', { ascending: false }),
     db.from('subcategorias').select('*').order('nome'),
-    db.from('marcas').select('*').order('nome')
+    db.from('marcas').select('*').order('nome'),
+    db.from('notas').select('*').order('data_compra', { ascending: false }).limit(500)
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [], mc: mc.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [], mc: mc.data || [], nf: nf.data || [] };
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
@@ -36,17 +37,303 @@ function info(id) {
 function go(v, id, ed) { $('#side').classList.remove('open'); cur = v; curId = id || null; EDIT = ed || null; render(); window.scrollTo(0, 0); }
 function render() {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav == cur || (cur == 'ficha' && b.dataset.nav == 'clientes')));
-  $('#view').innerHTML = { inicio, vitrine, procuras, cobranca, fluxo, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
+  $('#view').innerHTML = { inicio, vitrine, notas, procuras, cobranca, fluxo, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
   if (cur == 'inicio') vitInit();
   if (cur == 'vitrine') vtxt();
   if (cur == 'venda') iniciaVenda();
-  const nn = sgPend().length, tt = S.pd.length + nn, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; } const pdb = $('#pdbadge'); if (pdb) { pdb.textContent = S.pd.length || ''; pdb.hidden = !S.pd.length; }
+  const nn = sgPend().length, nu = nfUrgentes().length, tt = S.pd.length + nn + nu, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; } const nfb = $('#nfbadge'); if (nfb) { nfb.textContent = nu || ''; nfb.hidden = !nu; } const pdb = $('#pdbadge'); if (pdb) { pdb.textContent = S.pd.length || ''; pdb.hidden = !S.pd.length; }
 }
 function modal(h) { $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet">${h}</div></div>`; }
 function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== NOTAS FISCAIS DE COMPRA (prazo de troca) ===== */
+let NF = { f: 'prazo', q: '', m: '', p: '' }, NFP = [], NFSEL = new Set(), NFEDIT = null, NFSAVING = false;
+const NFB = 'notas';
+const slug = t => nz(t || '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'nota';
+const dMais = (s, n) => { const [a, m, d] = s.split('-').map(Number); return dia2(new Date(a, m - 1, d + n)); };
+const nfLimite = n => dMais(n.data_compra, n.prazo_dias);
+const nfDias = n => Math.round((new Date(nfLimite(n) + 'T12:00:00') - new Date(HOJE + 'T12:00:00')) / 864e5);
+const nfForn = n => (S.mc.find(m => m.id == n.marca_id) || {}).nome || n.fornecedor || 'Fornecedor';
+function nfSit(n) {
+  if (n.resolvida) return ['Troca feita', 'ok'];
+  const d = nfDias(n);
+  return d < 0 ? ['Prazo encerrado', ''] : d == 0 ? ['Vence hoje', 'bad'] : d <= 3 ? [`Faltam ${d} ${d == 1 ? 'dia' : 'dias'}`, 'bad'] : d <= 7 ? [`Faltam ${d} dias`, 'wait'] : [`Faltam ${d} dias`, 'ok'];
+}
+const nfUrgentes = () => (S.nf || []).filter(n => !n.resolvida && nfDias(n) >= 0 && nfDias(n) <= 3).sort((a, b) => nfDias(a) - nfDias(b));
+const NFF = { prazo: n => !n.resolvida && nfDias(n) >= 0, encerradas: n => !n.resolvida && nfDias(n) < 0, resolvidas: n => n.resolvida, todas: () => true };
+function nfLista() {
+  const q = nz(NF.q.trim());
+  const txt = n => nz([nfForn(n), n.numero, n.chave, n.itens, n.obs, ...(n.produtos || []).map(id => (S.pr.find(p => p.id == id) || {}).nome)].join(' '));
+  let l = (S.nf || []).filter(n => (!NF.m || n.marca_id == NF.m) && (!NF.p || (n.produtos || []).includes(NF.p)) && (!q || txt(n).includes(q)));
+  if (!q) l = l.filter(NFF[NF.f]);
+  return l.sort((a, b) => !q && NF.f == 'prazo' ? nfDias(a) - nfDias(b) : b.data_compra.localeCompare(a.data_compra));
+}
+function nfCard(n) {
+  const [t, c] = nfSit(n), arq = n.arquivos || [], ps = (n.produtos || []).map(id => S.pr.find(p => p.id == id)).filter(Boolean);
+  const itens = (n.itens || '').split('\n').map(x => x.trim()).filter(Boolean);
+  return `<div class="card nf"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><span style="display:flex;gap:10px;align-items:center;min-width:0;cursor:pointer" onclick="nfVer('${n.id}')"><span class="nft">${n.thumb ? `<img src="${n.thumb}" alt="">` : '📄'}</span>
+  <span style="min-width:0"><b>${esc(nfForn(n))}${n.numero ? ' · NF ' + esc(n.numero) : ''}</b><small class="blk">Compra ${dt(n.data_compra)}${n.valor != null ? ' · ' + R(n.valor) : ''} · ${arq.length} ${arq.length == 1 ? 'página' : 'páginas'}</small></span></span><em class="tag ${c}">${t}</em></div>
+  <small class="blk" style="margin-top:6px">🔁 Troca até <b>${dt(nfLimite(n))}</b> (prazo de ${n.prazo_dias} dias)</small>
+  ${ps.length ? `<div class="fchips" style="margin:6px 0 0">${ps.slice(0, 4).map(p => `<span class="fc"><span>${esc(p.nome)}</span></span>`).join('')}${ps.length > 4 ? `<span class="fc"><span>+${ps.length - 4}</span></span>` : ''}</div>` : ''}
+  ${itens.length ? `<small class="blk">${esc(itens.slice(0, 3).join(' · '))}${itens.length > 3 ? '…' : ''}</small>` : ''}
+  <div class="row" style="margin-top:8px"><button class="btn" onclick="nfVer('${n.id}')">Abrir / baixar</button><button class="btn alt" onclick="nfShare('${n.id}')">📤</button><button class="lnk" onclick="formNF('${n.id}')">Editar</button><button class="lnk" onclick="nfResolve('${n.id}')">${n.resolvida ? 'Reabrir' : '✓ Troca feita'}</button><button class="lnk red" onclick="nfExclui('${n.id}')">Excluir</button></div></div>`;
+}
+const nfCards = () => nfLista().map(nfCard).join('') || `<p class="mut">${S.nf.length ? 'Nenhuma nota nesta lista.' : 'Nenhuma nota ainda. Toque em "Nova nota" e escaneie a primeira! 🧾'}</p>`;
+function nfDesenha() { const b = $('#nfl'); if (b) b.innerHTML = nfCards(); }
+function notas() {
+  const cont = k => (S.nf || []).filter(NFF[k]).length, pr = NF.p ? S.pr.find(p => p.id == NF.p) : null;
+  return `<div class="row"><h1>Notas fiscais</h1><button class="btn" onclick="formNF()">📷 Nova nota</button></div>
+  <p class="mut">Guarde as notas de compra e nunca perca o prazo de troca. Busque pelo produto, fornecedor ou número da nota.</p>
+  <input class="inp" id="nfq" placeholder="🔎 Buscar por produto, fornecedor ou nº da NF" value="${esc(NF.q)}" oninput="NF.q=this.value;nfDesenha()">
+  ${pr ? `<div class="fchips"><span class="fc"><span>Produto: ${esc(pr.nome)}</span></span><button class="lnk" onclick="NF.p='';render()">Limpar</button></div>` : ''}
+  <div class="row" style="justify-content:flex-start">${[['prazo', 'No prazo'], ['encerradas', 'Encerradas'], ['resolvidas', 'Troca feita'], ['todas', 'Todas']].map(([k, t]) => `<button class="btn ${NF.f == k ? '' : 'alt'}" onclick="NF.f='${k}';render()">${t} (${cont(k)})</button>`).join('')}</div>
+  ${S.mc.length ? `<div class="fchips">${[['', 'Todos os fornecedores'], ...S.mc.map(m => [m.id, m.nome])].map(([v, t]) => `<button class="vpcat ${NF.m == v ? 'on' : ''}" onclick="NF.m='${v}';render()">${esc(t)}</button>`).join('')}</div>` : ''}
+  <div id="nfl">${nfCards()}</div>`;
+}
+/* ---- ver / baixar / compartilhar / imprimir ---- */
+async function nfUrls(n, dl) {
+  const arq = n.arquivos || [], { data, error } = await db.storage.from(NFB).createSignedUrls(arq.map(a => a.path), 3600, dl ? { download: true } : undefined);
+  return error || !data ? null : data.map(d => d.signedUrl);
+}
+async function nfVer(id) {
+  const n = S.nf.find(x => x.id == id); if (!n) return;
+  modal(`<h2>🧾 ${esc(nfForn(n))}${n.numero ? ' · NF ' + esc(n.numero) : ''}</h2><p class="mut">Compra ${dt(n.data_compra)} · troca até ${dt(nfLimite(n))}</p>
+  <div class="row"><button class="btn" onclick="nfBaixar('${id}')">⬇️ Baixar</button><button class="btn alt" onclick="nfShare('${id}')">📤 Compartilhar</button><button class="btn alt" onclick="nfPrint('${id}')">🖨️ PDF</button></div>
+  <div id="nfv"><p class="mut">Carregando…</p></div>`);
+  const u = await nfUrls(n), arq = n.arquivos || [];
+  if (!u) return ($('#nfv').innerHTML = '<p class="mut">Não consegui abrir os arquivos. Confira se rodou o SQL de notas fiscais.</p>');
+  $('#nfv').innerHTML = u.map((s, i) => arq[i].tipo == 'pdf' ? `<div class="card row"><span>📄 ${esc(arq[i].nome)}</span><a class="btn alt" target="_blank" href="${s}">Abrir PDF</a></div>` : `<a href="${s}" target="_blank"><img class="nfimg" src="${s}" alt="Página ${i + 1}"></a>`).join('') || '<p class="mut">Nota sem arquivos.</p>';
+}
+async function nfBaixar(id) {
+  const n = S.nf.find(x => x.id == id); if (!n) return;
+  const u = await nfUrls(n, true); if (!u) return toast('Não consegui baixar agora');
+  for (let i = 0; i < u.length; i++) { const a = document.createElement('a'); a.href = u[i]; a.download = n.arquivos[i].nome; document.body.appendChild(a); a.click(); a.remove(); await new Promise(r => setTimeout(r, 450)); }
+}
+async function nfShare(id) {
+  const n = S.nf.find(x => x.id == id); if (!n) return;
+  const u = await nfUrls(n); if (!u) return toast('Não consegui abrir os arquivos');
+  try {
+    const files = await Promise.all(u.map(async (s, i) => { const b = await (await fetch(s)).blob(); return new File([b], n.arquivos[i].nome, { type: b.type || (n.arquivos[i].tipo == 'pdf' ? 'application/pdf' : 'image/jpeg') }); }));
+    if (navigator.canShare && navigator.canShare({ files })) await navigator.share({ files, title: `NF ${n.numero || ''} ${nfForn(n)}`.trim() });
+    else { toast('Este aparelho não compartilha arquivos: baixando'); nfBaixar(id); }
+  } catch (e) { if (e && e.name != 'AbortError') toast('Não foi possível compartilhar'); }
+}
+async function nfPrint(id) {
+  const n = S.nf.find(x => x.id == id); if (!n) return;
+  const u = await nfUrls(n); if (!u) return toast('Não consegui abrir os arquivos');
+  const imgs = u.filter((_, i) => n.arquivos[i].tipo != 'pdf'), w = window.open('', '_blank');
+  if (!w) return toast('Permita pop-ups deste site');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>NF ${esc(n.numero || '')} - ${esc(nfForn(n))}</title><style>@page{margin:8mm}body{margin:0;font-family:Arial,sans-serif}img{width:100%;display:block;page-break-after:always}p{font-size:12px;color:#444;margin:0 0 6px}</style></head><body><p><b>${esc(nfForn(n))}</b> · NF ${esc(n.numero || '—')} · compra ${dt(n.data_compra)} · troca até ${dt(nfLimite(n))}</p>${imgs.map(s => `<img src="${s}">`).join('')}<script>window.onload=function(){setTimeout(function(){window.print()},500)}<\/script></body></html>`);
+  w.document.close();
+}
+async function nfResolve(id) {
+  const n = S.nf.find(x => x.id == id); if (!n) return;
+  const { error } = await db.from('notas').update({ resolvida: !n.resolvida }).eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); toast(n.resolvida ? 'Nota reaberta' : 'Troca marcada como feita');
+}
+async function nfExclui(id) {
+  const n = S.nf.find(x => x.id == id); if (!n) return;
+  if (!confirm('Excluir esta nota e os arquivos dela? Não dá para desfazer.')) return;
+  const { error } = await db.from('notas').delete().eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  const ps = (n.arquivos || []).map(a => a.path); if (ps.length) await db.storage.from(NFB).remove(ps);
+  await load(); render(); toast('Nota excluída');
+}
+/* ---- chave de acesso / código de barras ---- */
+function nfChave(v) {
+  const c = String(v || '').replace(/\D/g, ''); if (c.length != 44) return null;
+  let s = 0, w = 2; for (let i = 42; i >= 0; i--) { s += +c[i] * w; w = w == 9 ? 2 : w + 1; }
+  const r = s % 11, dv = r < 2 ? 0 : 11 - r; if (dv != +c[43]) return null;
+  return { aamm: c.slice(2, 6), cnpj: c.slice(6, 20), serie: String(+c.slice(22, 25)), numero: String(+c.slice(25, 34)) };
+}
+async function nfCodigo(file) {
+  try {
+    if (!('BarcodeDetector' in window)) return null;
+    const bd = new BarcodeDetector({ formats: ['code_128', 'qr_code'] }), r = await bd.detect(await createImageBitmap(file));
+    for (const x of r) { const m = (x.rawValue || '').match(/\d{44}/); if (m && nfChave(m[0])) return m[0]; }
+  } catch (e) {}
+  return null;
+}
+function nfChaveIn(v, scan) {
+  const f = $('#nff'), msg = $('#nfmsg'), d = String(v || '').replace(/\D/g, ''); if (!f) return;
+  const c = nfChave(d);
+  if (!c) { if (d.length == 44 && msg) msg.textContent = '⚠️ A chave não confere: confira os números.'; return; }
+  if (!f.numero.value || scan) f.numero.value = c.numero;
+  f.dataset.cnpj = c.cnpj;
+  const m = S.mc.find(x => x.cnpj && x.cnpj.replace(/\D/g, '') == c.cnpj);
+  if (m) { f.marca.value = m.id; nfMarca(); }
+  if (msg) msg.textContent = `✅ Código lido: NF ${c.numero} · emitida em ${c.aamm.slice(2)}/20${c.aamm.slice(0, 2)}${m ? ' · ' + m.nome : ''}`;
+}
+/* ---- formulário ---- */
+async function nfProc(file, melhora) {
+  const bmp = await createImageBitmap(file), k = Math.min(1, 1800 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(bmp, 0, 0, c.width, c.height);
+  if (melhora) {
+    const d = x.getImageData(0, 0, c.width, c.height), p = d.data, h = new Uint32Array(256), tot = c.width * c.height;
+    for (let i = 0; i < p.length; i += 4) { const g = (p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114) | 0; p[i] = p[i + 1] = p[i + 2] = g; h[g]++; }
+    let a = 0, lo = 0, hi = 255;
+    for (let i = 0; i < 256; i++) { a += h[i]; if (a > tot * 0.02) { lo = i; break; } }
+    a = 0; for (let i = 255; i >= 0; i--) { a += h[i]; if (a > tot * 0.25) { hi = i; break; } }
+    const span = Math.max(40, hi - lo);
+    for (let i = 0; i < p.length; i += 4) { const v = Math.max(0, Math.min(255, ((p[i] - lo) * 255) / span)); p[i] = p[i + 1] = p[i + 2] = v; }
+    x.putImageData(d, 0, 0);
+  }
+  const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.78)), t = document.createElement('canvas'), kk = 220 / Math.max(c.width, c.height);
+  t.width = Math.max(1, Math.round(c.width * kk)); t.height = Math.max(1, Math.round(c.height * kk)); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
+  return { blob, thumb: t.toDataURL('image/jpeg', 0.7) };
+}
+async function nfAdd(inp) {
+  const fs = [...inp.files], melhora = $('#nfmelhora').checked, msg = $('#nfmsg'); inp.value = '';
+  for (const f of fs) {
+    if (NFP.length >= 8) { toast('Máximo de 8 páginas por nota'); break; }
+    if (f.type == 'application/pdf' || /\.pdf$/i.test(f.name)) { if (f.size > 10e6) { toast('PDF muito grande (máximo 10 MB)'); continue; } NFP.push({ tipo: 'pdf', nome: f.name, blob: f, novo: true }); nfPg(); continue; }
+    msg.textContent = 'Processando a imagem…';
+    try { const r = await nfProc(f, melhora); NFP.push({ tipo: 'img', nome: 'pagina.jpg', blob: r.blob, thumb: r.thumb, novo: true }); }
+    catch (e) { toast('Não consegui ler essa imagem'); continue; }
+    nfPg();
+    const form = $('#nff');
+    if (form && !form.chave.value) { const c = await nfCodigo(f); if (c) { form.chave.value = c; nfChaveIn(c, true); } }
+  }
+  if (msg && msg.textContent.startsWith('Processando')) msg.textContent = '';
+}
+function nfPg() {
+  const b = $('#nfpg'); if (!b) return;
+  const n = NFEDIT ? S.nf.find(x => x.id == NFEDIT) : null;
+  b.innerHTML = NFP.map((p, i) => `<div class="ft">${p.tipo == 'pdf' ? '<div class="pimg" style="height:100%">📄</div>' : (p.thumb || (i == 0 && n && n.thumb)) ? `<img src="${p.thumb || n.thumb}" alt="">` : '<div class="pimg" style="height:100%">🖼️</div>'}<span class="pri">${i + 1}</span><button type="button" class="x" onclick="nfRem(${i})" title="Remover">✕</button></div>`).join('');
+}
+function nfRem(i) { NFP.splice(i, 1); nfPg(); }
+function nfPrazoTxt() {
+  const f = $('#nff'), b = $('#nflim'); if (!f || !b) return;
+  const n = { data_compra: f.data.value, prazo_dias: +f.prazo.value || 0 };
+  b.innerHTML = f.data.value ? `🔁 Troca até <b>${dt(nfLimite(n))}</b>${(d => d < 0 ? ' <small class="red">(prazo já passou)</small>' : ` <small>(${d == 0 ? 'vence hoje' : 'faltam ' + d + ' dias'})</small>`)(nfDias(n))}` : '';
+}
+function nfPrazo(d) { $('#nff').prazo.value = d; nfPrazoTxt(); }
+function nfMarca() {
+  const f = $('#nff'), v = f.marca.value; f.fornecedor.hidden = v != '__outro';
+  const m = S.mc.find(x => x.id == v); if (m && m.prazo_troca != null) { f.prazo.value = m.prazo_troca; nfPrazoTxt(); }
+  nfProdList();
+}
+function nfSel(id, on) { if (on) NFSEL.add(id); else NFSEL.delete(id); }
+function nfProdList() {
+  const box = $('#nfpl'); if (!box) return;
+  const f = $('#nff'), mid = f ? f.marca.value : '', q = nz((($('#nfq2') || {}).value) || '');
+  const l = S.pr.filter(p => !q || nz(p.nome + ' ' + skuDe(p)).includes(q)).sort((a, b) => (NFSEL.has(b.id) - NFSEL.has(a.id)) || ((b.marca_id == mid) - (a.marca_id == mid)) || a.nome.localeCompare(b.nome));
+  box.innerHTML = l.slice(0, 80).map(p => `<label class="card row" style="padding:8px"><span>${esc(p.nome)}<small class="blk">${esc((S.mc.find(m => m.id == p.marca_id) || {}).nome || '')}</small></span><input type="checkbox" ${NFSEL.has(p.id) ? 'checked' : ''} onchange="nfSel('${p.id}',this.checked)"></label>`).join('') || '<small>Nenhum produto encontrado.</small>';
+}
+function formNF(id) {
+  const n = id ? S.nf.find(x => x.id == id) : null;
+  NFEDIT = id || null; NFSEL = new Set(n ? n.produtos || [] : []); NFP = (n ? n.arquivos || [] : []).map(a => ({ ...a, existing: true }));
+  const mc = n ? (n.marca_id || (n.fornecedor ? '__outro' : '')) : '';
+  modal(`<h2>${id ? 'Editar' : 'Nova'} nota fiscal de compra</h2>
+  <form id="nff" onsubmit="salvaNF(event)">
+  <div class="card"><small>📷 Escaneie ou anexe a nota (pode ter várias páginas)</small>
+    <div class="row" style="margin-top:8px;justify-content:flex-start"><label class="btn">📷 Escanear<input type="file" accept="image/*" capture="environment" hidden onchange="nfAdd(this)"></label><label class="btn alt">📎 Foto ou PDF<input type="file" accept="image/*,application/pdf" multiple hidden onchange="nfAdd(this)"></label></div>
+    <label class="row" style="margin-top:6px"><small>✨ Melhorar leitura (modo documento)</small><input type="checkbox" id="nfmelhora" checked></label>
+    <div class="fts" id="nfpg"></div><small class="blk" id="nfmsg"></small></div>
+  <select class="inp" name="marca" onchange="nfMarca()"><option value="">Fornecedor…</option>${S.mc.map(m => `<option value="${m.id}" ${m.id == mc ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}<option value="__outro" ${mc == '__outro' ? 'selected' : ''}>Outro fornecedor…</option></select>
+  <input class="inp" name="fornecedor" maxlength="60" placeholder="Nome do fornecedor" value="${esc(n && !n.marca_id ? n.fornecedor : '')}" ${mc == '__outro' ? '' : 'hidden'}>
+  <input class="inp" name="numero" maxlength="20" placeholder="Número da NF" value="${esc(n ? n.numero : '')}">
+  <input class="inp" name="chave" inputmode="numeric" maxlength="60" placeholder="Chave de acesso (44 números, opcional)" value="${esc(n ? n.chave : '')}" oninput="nfChaveIn(this.value)">
+  <label><small>Data da compra</small><input class="inp" type="date" name="data" value="${n ? n.data_compra : HOJE}" required oninput="nfPrazoTxt()"></label>
+  <label><small>Prazo para troca (dias)</small><input class="inp" type="number" name="prazo" min="0" max="365" value="${n ? n.prazo_dias : 7}" required oninput="nfPrazoTxt()"></label>
+  <div class="fchips">${[3, 7, 15, 30].map(d => `<button type="button" class="vpcat" onclick="nfPrazo(${d})">${d} dias</button>`).join('')}</div>
+  <div class="card" id="nflim"></div>
+  <input class="inp" name="valor" inputmode="decimal" placeholder="Valor total da NF (opcional)" value="${n && n.valor != null ? n.valor : ''}">
+  <div class="card"><small>🛍️ Quais produtos estão nesta nota? (para achar rápido depois)</small><input class="inp" id="nfq2" placeholder="Buscar produto…" oninput="nfProdList()"><div id="nfpl" class="nfpl"></div></div>
+  <textarea class="inp" name="itens" rows="2" placeholder="Outros itens (um por linha), se não estiverem no catálogo">${esc(n ? n.itens : '')}</textarea>
+  <textarea class="inp" name="obs" rows="2" placeholder="Observações">${esc(n ? n.obs : '')}</textarea>
+  <button class="btn w" id="nfsave">Salvar nota</button><button type="button" class="btn alt w" style="margin-top:8px" onclick="fecha()">Cancelar</button></form>`);
+  nfPg(); nfPrazoTxt(); nfProdList();
+}
+async function salvaNF(e) {
+  e.preventDefault();
+  if (NFSAVING) return;
+  const f = e.target, btn = $('#nfsave');
+  if (!NFP.length && !confirm('Salvar sem nenhum arquivo anexado?')) return;
+  NFSAVING = true; btn.disabled = true; btn.textContent = 'Salvando…';
+  const antigo = NFEDIT ? S.nf.find(x => x.id == NFEDIT) : null, id = NFEDIT || (crypto.randomUUID ? crypto.randomUUID() : null);
+  try {
+    const v = f.marca.value, marca = S.mc.find(m => m.id == v), forn = v == '__outro' ? f.fornecedor.value.trim() : '';
+    if (v == '__outro' && !forn) { toast('Digite o nome do fornecedor'); return; }
+    const nome = nfForn({ marca_id: marca && marca.id, fornecedor: forn }), num = f.numero.value.trim();
+    const arq = [], novos = [];
+    for (let i = 0; i < NFP.length; i++) {
+      const p = NFP[i];
+      if (p.existing) { arq.push({ path: p.path, nome: p.nome, tipo: p.tipo }); continue; }
+      const ext = p.tipo == 'pdf' ? 'pdf' : 'jpg', path = `${id}/${Date.now()}-${i}.${ext}`, nm = `${slug(nome)}-NF${slug(num || 'sn')}-p${i + 1}.${ext}`;
+      const r = await db.storage.from(NFB).upload(path, p.blob, { contentType: p.blob.type || (p.tipo == 'pdf' ? 'application/pdf' : 'image/jpeg') });
+      if (r.error) { if (novos.length) await db.storage.from(NFB).remove(novos); toast('Erro ao enviar o arquivo: ' + r.error.message); return; }
+      novos.push(path); arq.push({ path, nome: nm, tipo: p.tipo });
+    }
+    const primeira = NFP.find(x => x.tipo == 'img'), d = {
+      marca_id: marca ? marca.id : null, fornecedor: forn || null, numero: num || null, chave: f.chave.value.replace(/\D/g, '') || null,
+      data_compra: f.data.value, prazo_dias: Math.max(0, Math.min(365, +f.prazo.value || 0)), valor: numOc(f.valor.value),
+      itens: f.itens.value.trim() || null, produtos: [...NFSEL], arquivos: arq, obs: f.obs.value.trim() || null,
+      thumb: primeira ? (primeira.thumb || (antigo && antigo.thumb) || null) : null
+    };
+    const r = NFEDIT ? await db.from('notas').update(d).eq('id', NFEDIT) : await db.from('notas').insert({ id, ...d });
+    if (r.error) { if (novos.length) await db.storage.from(NFB).remove(novos); toast('Erro: ' + r.error.message); return; }
+    if (antigo) { const rem = (antigo.arquivos || []).filter(a => !arq.some(x => x.path == a.path)).map(a => a.path); if (rem.length) await db.storage.from(NFB).remove(rem); }
+    if (marca && !marca.cnpj && f.dataset.cnpj) await db.from('marcas').update({ cnpj: f.dataset.cnpj }).eq('id', marca.id);
+    fecha(); await load(); render(); toast('Nota salva');
+  } finally { NFSAVING = false; if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Salvar nota'; } }
+}
+/* ===== PRIVACIDADE: custos e lucros ocultos por padrão (olhinho) ===== */
+let OCULTO = true;
+const EYE_ON = '<svg class="ic" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg class="ic" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>';
+const ocv = t => `<span class="oc" data-v="${esc(t)}">${OCULTO ? '•••' : esc(t)}</span>`;
+const eyeBtn = () => `<button type="button" class="eye" onclick="ocToggle()" title="${OCULTO ? 'Mostrar custos e lucros' : 'Ocultar custos e lucros'}">${OCULTO ? EYE_OFF : EYE_ON}</button>`;
+const numOc = v => { if (v === '' || v == null) return null; let x = String(v).trim(); if (x.includes(',')) x = x.replace(/\./g, '').replace(',', '.'); const n = +x; return isFinite(n) ? n : null; };
+function ocApply() {
+  document.body.classList.toggle('oculto', OCULTO);
+  document.querySelectorAll('.oc').forEach(e => { e.textContent = OCULTO ? '•••' : e.dataset.v; });
+  document.querySelectorAll('.eye').forEach(e => { e.innerHTML = OCULTO ? EYE_OFF : EYE_ON; e.title = OCULTO ? 'Mostrar custos e lucros' : 'Ocultar custos e lucros'; });
+}
+function ocToggle() { OCULTO = !OCULTO; ocApply(); toast(OCULTO ? '🙈 Custos e lucros ocultos' : '👁️ Custos e lucros visíveis'); }
+ocApply();
+/* ===== FOTOS (até 5) E TAMANHOS ===== */
+let FT = [], FTD = false;
+const TAMS = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'Único', '34', '36', '38', '40', '42', '44', '46', '48'];
+const fileUrl = f => new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); });
+const redimN = (src, max, q) => new Promise(ok => { const im = new Image(); im.onload = () => { const k = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', q)); }; im.src = src; });
+async function ftAdd(inp) {
+  const fs = [...inp.files]; inp.value = '';
+  for (const f of fs) { if (FT.length >= 5) { toast('Máximo de 5 fotos por produto'); break; } FT.push(await redimN(await fileUrl(f), 900, 0.82)); FTD = true; ftDesenha(); }
+}
+function ftDesenha() {
+  const b = $('#fts'); if (!b) return;
+  b.innerHTML = FT.map((u, i) => `<div class="ft"><img src="${u}" alt="">${i == 0 ? '<span class="pri">Principal</span>' : `<button type="button" class="st" onclick="ftPrim(${i})" title="Tornar principal">★</button>`}<button type="button" class="x" onclick="ftDel(${i})" title="Remover">✕</button></div>`).join('')
+    + (FT.length < 5 ? '<label class="ft add">＋<input type="file" accept="image/*" multiple onchange="ftAdd(this)" hidden></label>' : '');
+  const c = $('#ftc'); if (c) c.textContent = FT.length + '/5';
+}
+function ftPrim(i) { FT.unshift(FT.splice(i, 1)[0]); FTD = true; ftDesenha(); }
+function ftDel(i) { FT.splice(i, 1); FTD = true; ftDesenha(); }
+async function ftInit(id, p) {
+  FT = p.foto ? [p.foto] : []; FTD = false; ftDesenha();
+  if (!id || !(p.n_fotos >= 1)) return;
+  const { data } = await db.from('produto_fotos').select('url').eq('produto_id', id).order('ordem');
+  if (data && data.length) { const extra = FTD ? FT.slice(1) : []; FT = [...data.map(x => x.url), ...extra].slice(0, 5); ftDesenha(); }
+}
+const tamHtml = p => {
+  const sel = p.tamanhos || [], modo = p.tam_consulta ? 'consulta' : sel.length ? 'lista' : 'nenhum', todos = [...TAMS, ...sel.filter(t => !TAMS.includes(t))];
+  return `<div class="card"><small>📏 Tamanhos disponíveis</small>
+  <div class="tiles" style="grid-template-columns:repeat(3,1fr)">${[['nenhum', 'Sem tamanho'], ['lista', 'Escolher tamanhos'], ['consulta', 'Consulte o tamanho']].map(([v, t]) => `<label class="tile"><input type="radio" name="tmodo" value="${v}" ${modo == v ? 'checked' : ''} onchange="tmodoSet()"><span>${t}</span></label>`).join('')}</div>
+  <div id="tmbox" ${modo == 'lista' ? '' : 'hidden'}><div class="tiles tz" id="tzs">${todos.map(t => `<label class="tile"><input type="checkbox" name="tam" value="${esc(t)}" ${sel.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>
+  <div class="row" style="flex-wrap:nowrap"><input class="inp" id="tcus" maxlength="12" placeholder="Outro tamanho (ex: 50, 3XL)" style="margin:0"><button type="button" class="btn alt" onclick="tzAdd()">Adicionar</button></div></div>
+  <small class="blk">“Consulte o tamanho” mostra ao cliente: consulte o tamanho disponível.</small></div>`;
+};
+function tmodoSet() { const m = document.querySelector('#modal [name=tmodo]:checked'); $('#tmbox').hidden = !m || m.value != 'lista'; }
+function tzAdd() {
+  const i = $('#tcus'), v = i.value.trim().replace(/[:\s]+/g, ' ').toUpperCase(); if (!v) return;
+  const ex = [...document.querySelectorAll('#modal [name=tam]')].find(c => c.value == v);
+  if (ex) ex.checked = true; else $('#tzs').insertAdjacentHTML('beforeend', `<label class="tile"><input type="checkbox" name="tam" value="${esc(v)}" checked><span>${esc(v)}</span></label>`);
+  i.value = '';
+}
 /* ===== MARCAS / FORNECEDORES ===== */
 let CF = { m: '' };
 const marcaDe = p => (S.mc || []).find(m => m.id == p.marca_id);
@@ -67,6 +354,8 @@ function formMarca(id) {
   const m = (S.mc || []).find(x => x.id == id) || { areas: [] };
   modal(`<h2>${id ? 'Editar' : 'Nova'} marca / fornecedor</h2><form onsubmit="salvaMarca(event,'${id || ''}')">
   <input class="inp" name="nome" maxlength="40" placeholder="Nome da marca" value="${esc(m.nome)}" required>
+  <div><small>Prazo de troca deste fornecedor (dias)</small><input class="inp" name="prazo_troca" type="number" min="0" max="365" placeholder="Ex: 15, 7 ou 3" value="${m.prazo_troca ?? ''}"></div>
+  <input class="inp" name="cnpj" inputmode="numeric" maxlength="20" placeholder="CNPJ do fornecedor (opcional: reconhece a NF sozinho)" value="${esc(m.cnpj || '')}">
   <small>Em quais áreas você trabalha com ela?</small>
   <div class="tiles" style="grid-template-columns:1fr 1fr">${CATS.map(k => `<label class="tile" style="flex-direction:row;justify-content:center;gap:8px"><input type="checkbox" name="areas" value="${k}" ${(m.areas || []).includes(k) ? 'checked' : ''}>${IC[k]} ${k}</label>`).join('')}</div>
   ${m.logo ? `<div style="margin:6px 0">${mlogo(m)} <small>Logo atual. Escolha outra imagem abaixo só se quiser trocar.</small></div>` : ''}
@@ -78,7 +367,7 @@ async function salvaMarca(e, id) {
   const fd = new FormData(e.target), nome = fd.get('nome').trim().replace(/\s+/g, ' '), areas = fd.getAll('areas');
   if (!areas.length) return toast('Escolha ao menos uma área');
   if ((S.mc || []).some(m => nz(m.nome) == nz(nome) && m.id != id)) return toast('Já existe uma marca com esse nome');
-  const d = { nome, areas }, file = fd.get('logo');
+  const pz = fd.get('prazo_troca'), d = { nome, areas, prazo_troca: pz === '' || pz == null ? null : Math.max(0, Math.min(365, +pz || 0)), cnpj: String(fd.get('cnpj') || '').replace(/\D/g, '') || null }, file = fd.get('logo');
   if (file && file.size) { try { d.logo = await redimLogo(file); } catch (x) { return toast('Não consegui ler essa imagem'); } }
   const r = id ? await db.from('marcas').update(d).eq('id', id) : await db.from('marcas').insert(d);
   if (r.error) return toast('Erro: ' + r.error.message);
@@ -158,7 +447,7 @@ function sgCard(x, i, max, antes) {
   <div class="barra"><i style="width:${Math.max(6, x.n / max * 100)}%"></i></div>
   <small class="blk">${x.cat ? IC[x.cat] + ' ' + x.cat + ' · ' : ''}${x.pessoas} ${x.pessoas == 1 ? 'pessoa' : 'pessoas'} · último pedido em ${new Date(x.ult).toLocaleDateString('pt-BR')}</small>
   ${det.map(d => `<small class="blk">💬 “${esc(d)}”</small>`).join('')}
-  ${x.preco > 0 || x.custo != null ? `<small class="blk">📊 Custo ${x.custo != null ? R(x.custo) : '—'} · venda ${x.preco > 0 ? R(x.preco) : '—'}${mg != null ? ' · margem ' + pct(mg) : ''}</small>` : ''}${x.obs ? `<small class="blk">📝 ${esc(x.obs)}</small>` : ''}
+  ${x.preco > 0 || x.custo != null ? `<small class="blk">📊 Custo ${x.custo != null ? ocv(R(x.custo)) : '—'} · venda ${x.preco > 0 ? R(x.preco) : '—'}${mg != null ? ' · margem ' + ocv(pct(mg)) : ''}</small>` : ''}${x.obs ? `<small class="blk">📝 ${esc(x.obs)}</small>` : ''}
   <details><summary class="lnk">Quem pediu (${x.l.length})</summary>${x.l.map(p => `<div class="row" style="margin-top:6px"><small>${esc(p.nome || 'Sem nome')}${p.telefone ? ' · ' + esc(p.telefone) : ''}${p.status == 'nova' && new Date(p.criado_em) > antes ? ' <em class="tag wait">novo</em>' : ''}</small>${acao(p)}</div>`).join('')}</details>
   <div class="row" style="margin-top:8px">${botoes}</div></div>`;
 }
@@ -182,7 +471,7 @@ function sgAnalisar(k) {
   const g = sgGrupos(PR.f).find(x => x.k == k); if (!g) return;
   modal(`<h2>Vale a pena comprar?</h2><p class="mut"><b>${esc(g.nome)}</b> · ${g.n} ${g.n == 1 ? 'pedido' : 'pedidos'} de ${g.pessoas} ${g.pessoas == 1 ? 'pessoa' : 'pessoas'}</p>
   <form onsubmit="event.preventDefault();sgGravar('${k}','analise')">
-  <label><small>Quanto você pagaria por unidade (custo, R$)</small><input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" value="${g.custo ?? ''}" oninput="sgCalc()"></label>
+  <div><small>Quanto você pagaria por unidade (custo, R$)</small>${eyeBtn()}<input class="inp ci" name="custo" type="text" autocomplete="off" inputmode="decimal" value="${g.custo ?? ''}" oninput="sgCalc()"></div>
   <label><small>Por quanto venderia (R$)</small><input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" value="${g.preco ?? ''}" oninput="sgCalc()"></label>
   <div class="card" id="sgm" data-n="${g.n}"></div>
   <textarea class="inp" name="obs" rows="2" placeholder="Fornecedor, prazo, quantidade mínima...">${esc(g.obs || '')}</textarea>
@@ -193,17 +482,17 @@ function sgAnalisar(k) {
 }
 function sgCalc() {
   const f = document.querySelector('#modal form'), b = $('#sgm'); if (!f || !b) return;
-  const c = +f.custo.value, p = +f.preco.value, n = +b.dataset.n || 1;
+  const c = numOc(f.custo.value), p = +f.preco.value, n = +b.dataset.n || 1;
   if (!(p > 0) || f.custo.value === '') { b.innerHTML = '<small>Informe o custo e o preço de venda para ver a margem.</small>'; return; }
   const lu = p - c, m = lu / p, mm = margemMedia();
-  b.innerHTML = `<div class="row"><span>Lucro por unidade</span><b class="${lu >= 0 ? 'grn' : 'red'}">${R(lu)}</b></div><div class="row"><span>Margem</span><b class="${m >= 0.4 ? 'grn' : m >= 0.2 ? '' : 'red'}">${pct(m)}</b></div>
-  <small class="blk">${m >= 0.4 ? '✅ Margem saudável' : m >= 0.2 ? '⚠️ Margem apertada' : '❌ Margem baixa'}${mm != null ? ' · sua margem média hoje: ' + pct(mm) : ''}</small>
-  <small class="blk">Se vender 1 para cada pedido (${n}): ${R(n * p)} em vendas e ${R(n * lu)} de lucro.</small>`;
+  b.innerHTML = `<div class="row"><span>Lucro por unidade</span><b class="ocw ${lu >= 0 ? 'grn' : 'red'}">${ocv(R(lu))}</b></div><div class="row"><span>Margem</span><b class="ocw ${m >= 0.4 ? 'grn' : m >= 0.2 ? '' : 'red'}">${ocv(pct(m))}</b></div>
+  <small class="blk">${m >= 0.4 ? '✅ Margem saudável' : m >= 0.2 ? '⚠️ Margem apertada' : '❌ Margem baixa'}${mm != null ? ' · sua margem média hoje: ' : ''}${mm != null ? ocv(pct(mm)) : ''}</small>
+  <small class="blk">Se vender 1 para cada pedido (${n}): ${R(n * p)} em vendas e ${ocv(R(n * lu))} de lucro.</small>`;
 }
 async function sgGravar(k, st) {
   const f = document.querySelector('#modal form'), v = n => f[n].value.trim();
   const ids = S.sg.filter(x => sgChave(x) == k && SGT[PR.f].includes(x.status)).map(x => x.id);
-  const d = { status: st, custo_est: v('custo') === '' ? null : +v('custo'), preco_est: v('preco') === '' ? null : +v('preco'), obs: v('obs') || null };
+  const d = { status: st, custo_est: numOc(v('custo')), preco_est: v('preco') === '' ? null : +v('preco'), obs: v('obs') || null };
   const { error } = await db.from('sugestoes').update(d).in('id', ids);
   if (error) return toast('Erro: ' + error.message);
   fecha(); PR.f = { analise: 'avaliando', viavel: 'comprar', descartada: 'descartadas' }[st];
@@ -327,24 +616,24 @@ function lucroPorProd(its, n) {
 const avisoCusto = L => L.total > 0 && L.cobertura < 0.999 ? `<small class="blk">Lucro calculado sobre ${pct(L.cobertura)} das vendas (as demais não têm custo). <button class="lnk" onclick="go('catalogo')">Informar custo dos produtos</button></small>` : '';
 function lucroPainel(its) {
   const L = lucroDe(its), pc = lucroPorCat(its), tp = lucroPorProd(its, 5);
-  return `<div class="two"><div class="card"><h2>Lucro por categoria</h2><small>Todas as vendas · margem = lucro ÷ vendido</small>
-  ${pc.map(([k, l]) => `<div class="row" style="margin-top:8px"><span>${IC[k]} ${k}<small class="blk">margem ${pct(l.margem)}</small></span><b class="${l.lucro >= 0 ? 'grn' : 'red'}">${l.base ? R(l.lucro) : '—'}</b></div>`).join('') || '<small class="blk">Sem vendas ainda.</small>'}
+  return `<div class="two"><div class="card"><h2>Lucro por categoria ${eyeBtn()}</h2><small>Todas as vendas · margem = lucro ÷ vendido</small>
+  ${pc.map(([k, l]) => `<div class="row" style="margin-top:8px"><span>${IC[k]} ${k}<small class="blk">margem ${ocv(pct(l.margem))}</small></span><b class="ocw ${l.lucro >= 0 ? 'grn' : 'red'}">${l.base ? ocv(R(l.lucro)) : '—'}</b></div>`).join('') || '<small class="blk">Sem vendas ainda.</small>'}
   ${avisoCusto(L)}</div>
-  <div class="card"><h2>Produtos mais lucrativos</h2>${tp.map(([n, o]) => `<div class="row"><small>${esc(n)}</small><b class="grn">${R(o.l)}</b></div>`).join('') || '<small>Informe o preço de custo nos produtos para ver o lucro.</small>'}</div></div>`;
+  <div class="card"><h2>Produtos mais lucrativos</h2>${tp.map(([n, o]) => `<div class="row"><small>${esc(n)}</small><b class="ocw grn">${ocv(R(o.l))}</b></div>`).join('') || '<small>Informe o preço de custo nos produtos para ver o lucro.</small>'}</div></div>`;
 }
 function lucroRel(vs) {
   const its = vs.flatMap(v => v.itens_venda || []), L = lucroDe(its), pc = lucroPorCat(its), tp = lucroPorProd(its, 8);
   const cts = F.cli ? [] : S.ct.filter(x => (!F.de || x.vencimento >= F.de) && (!F.ate || x.vencimento <= F.ate));
   const cc = sum(cts.filter(x => x.tipo == 'cartao'), x => x.valor), cv = sum(cts.filter(x => x.tipo != 'cartao'), x => x.valor);
-  return `<div class="grid"><div class="card"><small>Lucro bruto no período</small><b class="blk ${L.lucro >= 0 ? 'grn' : 'red'}">${R(L.lucro)}</b></div>
-  <div class="card"><small>Margem de lucro</small><b class="blk">${pct(L.margem)}</b></div></div>${avisoCusto(L)}
-  <h2>Lucro por categoria</h2>${pc.map(([k, l]) => `<div class="card row"><span>${IC[k]} ${k}<small class="blk">vendido ${R(l.total)} · margem ${pct(l.margem)}</small></span><b class="${l.lucro >= 0 ? 'grn' : 'red'}">${l.base ? R(l.lucro) : '—'}</b></div>`).join('') || '<p class="mut">Sem vendas neste filtro.</p>'}
-  <h2>Produtos mais lucrativos</h2>${tp.map(([n, o]) => `<div class="card row"><span>${esc(n)}<small class="blk">${o.q} un.</small></span><b class="grn">${R(o.l)}</b></div>`).join('') || '<p class="mut">Informe o custo dos produtos para ver o lucro.</p>'}
+  return `<div class="grid"><div class="card"><small>Lucro bruto no período</small><b class="blk ocw ${L.lucro >= 0 ? 'grn' : 'red'}">${ocv(R(L.lucro))}</b></div>
+  <div class="card"><small>Margem de lucro</small><b class="blk">${ocv(pct(L.margem))}</b></div></div>${avisoCusto(L)}
+  <h2>Lucro por categoria ${eyeBtn()}</h2>${pc.map(([k, l]) => `<div class="card row"><span>${IC[k]} ${k}<small class="blk">vendido ${R(l.total)} · margem ${ocv(pct(l.margem))}</small></span><b class="ocw ${l.lucro >= 0 ? 'grn' : 'red'}">${l.base ? ocv(R(l.lucro)) : '—'}</b></div>`).join('') || '<p class="mut">Sem vendas neste filtro.</p>'}
+  <h2>Produtos mais lucrativos</h2>${tp.map(([n, o]) => `<div class="card row"><span>${esc(n)}<small class="blk">${o.q} un.</small></span><b class="ocw grn">${ocv(R(o.l))}</b></div>`).join('') || '<p class="mut">Informe o custo dos produtos para ver o lucro.</p>'}
   ${F.cli ? '' : `<h2>Lucro × contas do período</h2><div class="card"><div class="row"><span>Contas a pagar no período<small class="blk">Cartão ${R(cc)} · À vista ${R(cv)}</small></span><b class="red">${R(cc + cv)}</b></div>
-  <div class="row" style="margin-top:8px"><span>Lucro bruto − contas</span><b class="${L.lucro - cc - cv >= 0 ? 'grn' : 'red'}">${R(L.lucro - cc - cv)}</b></div>
+  <div class="row" style="margin-top:8px"><span>Lucro bruto − contas</span><b class="ocw ${L.lucro - cc - cv >= 0 ? 'grn' : 'red'}">${ocv(R(L.lucro - cc - cv))}</b></div>
   <small class="blk">As contas incluem compras de estoque, que já estão no custo dos produtos vendidos. Use como visão de fôlego do caixa.</small></div>`}`;
 }
-const lucroTag = v => { const l = lucroDe(v.itens_venda || []); return l.base ? `<small class="blk ${l.lucro >= 0 ? 'grn' : 'red'}">Lucro: ${R(l.lucro)}</small>` : ''; };
+const lucroTag = v => { const l = lucroDe(v.itens_venda || []); return l.base ? `<small class="blk ocw ${l.lucro >= 0 ? 'grn' : 'red'}">Lucro: ${ocv(R(l.lucro))}</small>` : ''; };
 /* ===== FLUXO DE CAIXA PROJETADO ===== */
 let FX = { n: 6 };
 const kf = v => Math.abs(v) >= 1000 ? (v / 1000).toFixed(1).replace('.', ',') + 'k' : String(Math.round(v));
@@ -391,6 +680,7 @@ function hojeItens() {
   const lim = dia2(new Date(Date.now() + 7 * 864e5)), ct = S.ct.filter(x => !x.pago && x.vencimento <= lim), ent = S.v.filter(v => v.entregue === false);
   const ap = fluxoDados(3).meses.find(m => m.ac < -0.005);
   const it = [
+    nfUrgentes().length && ['🧾', 'Prazo de troca acabando', `${nfUrgentes().length} ${nfUrgentes().length == 1 ? 'nota' : 'notas'} · ${nfForn(nfUrgentes()[0])} (${nfDias(nfUrgentes()[0]) == 0 ? 'vence hoje' : nfDias(nfUrgentes()[0]) + ' dia(s)'})`, "NF.f='prazo';go('notas')", 'bad'],
     sgPend().length && ['🔎', 'Clientes pedindo produtos que você não tem', `${sgPend().length} aguardando análise · ${sgResumo()}`, "PR.f='novas';go('procuras')", 'warn'],
     atr.length && ['🔴', 'Parcelas atrasadas', `${atr.length} · ${R(sum(atr, x => x.falta))}`, "COB.f='atrasadas';go('cobranca')", 'bad'],
     hj.length && ['📅', 'Vencem hoje', `${hj.length} · ${R(sum(hj, x => x.falta))}`, "COB.f='hoje';go('cobranca')", 'warn'],
@@ -611,7 +901,7 @@ function dash() {
     <div class="card kpi"><small>VALOR A RECEBER</small><b>${R(tv - rec)}</b></div>
     <div class="card kpi bad"><small>PARCELAS ATRASADAS</small><b>${at.length}</b><small>${R(sum(at, x => x.falta))}</small></div>
     <div class="card kpi"><small>ENTREGA PENDENTE</small><b>${S.v.filter(v => v.entregue === false).length}</b></div>
-    <div class="card kpi"><small>LUCRO NO MÊS</small><b class="${LM.lucro >= 0 ? 'grn' : 'red'}">${LM.base ? R(LM.lucro) : '—'}</b><small>${LM.base ? 'margem ' + pct(LM.margem) : 'informe o custo dos produtos'}</small></div>
+    <div class="card kpi"><small>LUCRO NO MÊS ${eyeBtn()}</small><b class="ocw ${LM.lucro >= 0 ? 'grn' : 'red'}">${LM.base ? ocv(R(LM.lucro)) : '—'}</b><small>${LM.base ? 'margem ' + ocv(pct(LM.margem)) : 'informe o custo dos produtos'}</small></div>
   </div>
   <div class="two"><div class="card"><h2>Resumo de vendas</h2><small>Últimos 7 meses</small>
     <div class="bars">${ms.map((x, i) => `<div class="col"><span>${vals[i] ? R(vals[i]).replace('R$', '').trim() : ''}</span><div class="fill"><i style="height:${vals[i] / mx * 100}%"></i></div><span>${x.l}</span></div>`).join('')}</div></div>
@@ -722,7 +1012,7 @@ function addItem() {
   <div class="grid3"><label><small>Categoria</small><select class="inp" name="categoria">${opts(CATS)}</select></label>
   <label><small>Qtd</small><input class="inp" name="quantidade" type="number" min="1" value="1" oninput="calc()"></label>
   <label><small>Preço un. (R$)</small><input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00" oninput="calc()" required></label></div>
-  <label><small>Custo un. (R$, opcional: para calcular o lucro)</small><input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00"></label>
+  <div><small>Custo un. (R$, opcional)</small>${eyeBtn()}<input class="inp ci" name="custo" type="text" autocomplete="off" inputmode="decimal" placeholder="0,00"></div>
   <div class="row"><button type="button" class="lnk" onclick="this.closest('.it').remove();calc()">Remover item</button><b class="sub"></b></div>`;
   $('#its').append(d);
 }
@@ -758,7 +1048,7 @@ async function salvaVenda(e) {
 async function salvaVendaInterna(e) {
   e.preventDefault();
   const f = e.target, q = (r, n) => r.querySelector(`[name=${n}]`).value;
-  const itens = [...document.querySelectorAll('.it')].map(r => ({ produto: q(r, 'produto'), categoria: q(r, 'categoria'), quantidade: +q(r, 'quantidade'), preco_unit: +q(r, 'preco'), custo_unit: q(r, 'custo') === '' ? null : +q(r, 'custo') }));
+  const itens = [...document.querySelectorAll('.it')].map(r => ({ produto: q(r, 'produto'), categoria: q(r, 'categoria'), quantidade: +q(r, 'quantidade'), preco_unit: +q(r, 'preco'), custo_unit: numOc(q(r, 'custo')) }));
   if (!itens.length) return toast('Adicione ao menos um item');
   const total = calc(), pago = +f.pago.value || 0, cid = f.cliente_id.value;
   if (pago > total) return toast('O valor pago é maior que o total da venda');
@@ -813,7 +1103,7 @@ function pick(sel) {
 /* ===== CATEGORIAS DENTRO DE CADA ÁREA ===== */
 const subsDe = a => (S.sc || []).filter(s => s.area == a).map(s => s.nome);
 function linhaProd(p) {
-  return `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}${marcaDe(p) ? ' · ' + esc(marcaDe(p).nome) : ''}${p.custo != null && p.preco > 0 ? ` · custo ${R(p.custo)} · margem ${pct((p.preco - p.custo) / p.preco)}` : ''}</small></b><span>${R(p.preco)} <button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`;
+  return `<div class="card row">${foto(p)}<b class="grow">${esc(p.nome)}<small class="blk">SKU: ${esc(skuDe(p))}${marcaDe(p) ? ' · ' + esc(marcaDe(p).nome) : ''}${p.n_fotos > 1 ? ' · 📷' + p.n_fotos : ''}${p.tam_consulta ? ' · 📏 consultar' : (p.tamanhos || []).length ? ' · 📏 ' + p.tamanhos.join('/') : ''}${p.custo != null && p.preco > 0 ? ` · custo ${ocv(R(p.custo))} · margem ${ocv(pct((p.preco - p.custo) / p.preco))}` : ''}</small></b><span>${R(p.preco)} ${(S.nf || []).some(n => (n.produtos || []).includes(p.id)) ? `<button class="lnk" onclick="NF.p='${p.id}';NF.f='todas';NF.q='';go('notas')">🧾 NF</button> ` : ''}<button class="lnk" onclick="formProd('${p.id}')">Editar</button> <button class="lnk" onclick="del('produtos','${p.id}')">Excluir</button></span></div>`;
 }
 function catalogo() {
   const PRL = S.pr.filter(p => !CF.m || (CF.m == '__sem' ? !p.marca_id : p.marca_id == CF.m));
@@ -883,18 +1173,19 @@ function formProd(id) {
   <select class="inp" name="marca" onchange="marcaNova()"></select>
   <input class="inp" name="nova_marca" maxlength="40" placeholder="Nome da nova marca / fornecedor" hidden>
   <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de venda (R$)" value="${p.preco ?? ''}" required>
-  <input class="inp" name="custo" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de custo (R$) — quanto você pagou" value="${p.custo ?? ''}">
-  <label><small>Foto (opcional)</small><input class="inp" name="foto" type="file" accept="image/*"></label>
+  <div><small>Preço de custo (R$): quanto você pagou</small>${eyeBtn()}<input class="inp ci" name="custo" type="text" autocomplete="off" inputmode="decimal" placeholder="0,00" value="${p.custo ?? ''}"></div>
+  ${tamHtml(p)}
+  <div class="card"><div class="row"><small>📷 Fotos do produto (até 5): a primeira é a principal</small><small id="ftc"></small></div><div class="fts" id="fts"></div></div>
   <label class="row"><span>Mostrar na vitrine online</span><input type="checkbox" name="vitrine" ${p.vitrine === false ? '' : 'checked'}></label>
   <button class="btn w">Salvar produto</button></form>`);
   PREPROD = pp;
   if (p.categoria) document.querySelector('#modal [name=categoria]').value = p.categoria;
-  subOpts(p.subcategoria); marcaOpts(p.marca_id);
+  subOpts(p.subcategoria); marcaOpts(p.marca_id); ftInit(id, p);
 }
 async function salvaProd(e, id) {
   e.preventDefault();
   const pp = !id && PREPROD ? PREPROD : null;
-  const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco'), custo: fd.get('custo') === '' ? null : +fd.get('custo'), vitrine: fd.get('vitrine') == 'on', sku: (fd.get('sku') || '').trim() || skuNovo(fd.get('categoria')) };
+  const fd = new FormData(e.target), d = { nome: fd.get('nome'), categoria: fd.get('categoria'), preco: +fd.get('preco'), custo: numOc(fd.get('custo')), vitrine: fd.get('vitrine') == 'on', sku: (fd.get('sku') || '').trim() || skuNovo(fd.get('categoria')) };
   let sub = fd.get('subcategoria') || '';
   if (sub == '__nova') {
     sub = (fd.get('nova_sub') || '').trim().replace(/\s+/g, ' ');
@@ -913,9 +1204,16 @@ async function salvaProd(e, id) {
     }
   }
   d.marca_id = mid;
-  const file = fd.get('foto'); if (file && file.size) d.foto = await redim(file);
-  const { error } = id ? await db.from('produtos').update(d).eq('id', id) : await db.from('produtos').insert(d);
-  if (error) return toast('Erro: ' + error.message);
+  const modo = fd.get('tmodo') || 'nenhum';
+  d.tamanhos = modo == 'lista' ? fd.getAll('tam').map(t => String(t).replace(/:/g, '')) : [];
+  d.tam_consulta = modo == 'consulta';
+  if (FTD) { d.foto = FT[0] ? await redimN(FT[0], 420, 0.8) : null; d.n_fotos = FT.length; }
+  const r0 = id ? await db.from('produtos').update(d).eq('id', id).select('id').single() : await db.from('produtos').insert(d).select('id').single();
+  if (r0.error) return toast('Erro: ' + r0.error.message);
+  if (FTD) {
+    await db.from('produto_fotos').delete().eq('produto_id', r0.data.id);
+    if (FT.length) { const rf = await db.from('produto_fotos').insert(FT.map((url, i) => ({ produto_id: r0.data.id, ordem: i, url }))); if (rf.error) toast('Produto salvo, mas as fotos deram erro: ' + rf.error.message); }
+  }
   if (pp) { const ids = S.sg.filter(x => ['nova', 'analise', 'viavel'].includes(x.status) && sgChave(x) == pp.sg).map(x => x.id); if (ids.length) await db.from('sugestoes').update({ status: 'atendida' }).in('id', ids); }
   fecha(); await load();
   if (pp) { PR.f = 'atendidas'; go('procuras'); toast('Produto cadastrado! Avise quem pediu 💜'); } else { render(); toast('Produto salvo'); }
@@ -961,7 +1259,7 @@ function relPDF() {
   const cts = F.cli ? [] : S.ct;
   const pagasPer = cts.filter(x => x.pago && x.pago_em && noPer(x.pago_em));
   const vendido = sum(vs, v => v.total), recebido = sum(ps, p => p.valor), saidas = sum(pagasPer, x => x.valor);
-  const saldo = recebido - saidas, LP = lucroDe(itens);
+  const saldo = recebido - saidas, LP = lucroDe(itens), showL = !OCULTO;
   const top = Object.entries(itens.reduce((o, t) => (o[t.produto] = (o[t.produto] || 0) + t.quantidade, o), {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const nome = id => esc((S.c.find(c => c.id == id) || {}).nome || '—');
   const tb = (head, rows) => `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td${String(c).startsWith('R$') ? ' class="n"' : ''}>${c}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}" class="vz">Sem registros neste período</td></tr>`}</tbody></table>`;
@@ -1010,16 +1308,16 @@ tr{page-break-inside:avoid}
 <div class="r"><small>Contas pagas no período</small><b>${R(saidas)}</b></div>
 <div class="${saldo >= 0 ? 'g' : 'r'}"><small>Saldo (recebido − contas pagas)</small><b>${R(saldo)}</b></div>
 </div>
-<div class="kp" style="margin-top:10px"><div class="${LP.lucro >= 0 ? 'g' : 'r'}"><small>Lucro bruto</small><b>${R(LP.lucro)}</b></div><div><small>Margem de lucro</small><b>${pct(LP.margem)}</b></div><div class="y"><small>Custo dos produtos vendidos</small><b>${R(LP.custo)}</b></div></div>
-${LP.total > 0 && LP.cobertura < 0.999 ? `<p style="color:#8a96ad;font-size:10px;margin:6px 0 0">Lucro calculado sobre ${pct(LP.cobertura)} das vendas (as demais não têm custo informado).</p>` : ''}
+${showL ? `<div class="kp" style="margin-top:10px"><div class="${LP.lucro >= 0 ? 'g' : 'r'}"><small>Lucro bruto</small><b>${R(LP.lucro)}</b></div><div><small>Margem de lucro</small><b>${pct(LP.margem)}</b></div><div class="y"><small>Custo dos produtos vendidos</small><b>${R(LP.custo)}</b></div></div>
+${LP.total > 0 && LP.cobertura < 0.999 ? `<p style="color:#8a96ad;font-size:10px;margin:6px 0 0">Lucro calculado sobre ${pct(LP.cobertura)} das vendas (as demais não têm custo informado).</p>` : ''}` : ''}
 <h2>Vendas por categoria</h2>
 ${tb(['Categoria', 'Unidades', 'Total'], CATS.map(k => { const l = itens.filter(t => t.categoria == k); return [k, sum(l, t => t.quantidade), R(sum(l, t => t.quantidade * t.preco_unit))]; }))}
 <h2>Produtos mais vendidos</h2>
 ${tb(['Produto', 'Unidades'], top.map(([n, q]) => [esc(n), q]))}
-<h2>Lucro por categoria</h2>
+${showL ? `<h2>Lucro por categoria</h2>
 ${tb(['Categoria', 'Vendido', 'Custo', 'Lucro', 'Margem'], lucroPorCat(itens).map(([k, l]) => [k, R(l.total), R(l.custo), l.base ? R(l.lucro) : '—', l.base ? pct(l.margem) : '—']))}
 <h2>Produtos mais lucrativos</h2>
-${tb(['Produto', 'Unidades', 'Lucro'], lucroPorProd(itens, 10).map(([n, o]) => [esc(n), o.q, R(o.l)]))}
+${tb(['Produto', 'Unidades', 'Lucro'], lucroPorProd(itens, 10).map(([n, o]) => [esc(n), o.q, R(o.l)]))}` : ''}
 <h2>Previsão de recebimento por mês</h2>
 ${tb(['Mês', 'Parcelas', 'Valor total', 'Falta receber'], prev)}
 <h2>Parcelas em atraso</h2>
@@ -1029,7 +1327,7 @@ ${tb(['Data', 'Cliente', 'Forma', 'Valor'], ps.map(p => [new Date(p.criado_em).t
 ${F.cli ? '' : `<h2>Contas a pagar</h2>
 ${tb(['Descrição', 'Forma', 'Vencimento', 'Valor', 'Situação'], [...cts].sort((a, b) => a.vencimento < b.vencimento ? -1 : 1).map(x => [esc(x.descricao) + (x.parcelas_total > 1 ? ` (${x.parcela_num}/${x.parcelas_total})` : ''), esc(x.forma || '—'), dt(x.vencimento), R(x.valor), st(x.pago ? 'Pago' : (x.vencimento < HOJE ? 'Atrasado' : 'A vencer'))]))}`}
 <h2>Vendas detalhadas (${vs.length})</h2>
-${tb(['Data', 'Cliente', 'Itens', 'Total', 'Lucro', 'Situação'], vs.map(v => { const lv = lucroDe(v.itens_venda || []); return [new Date(v.data).toLocaleDateString('pt-BR'), nome(v.cliente_id), v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', '), R(v.total), lv.base ? R(lv.lucro) : '—', st(stVenda(v))]; }))}
+${tb(['Data', 'Cliente', 'Itens', 'Total', ...(showL ? ['Lucro'] : []), 'Situação'], vs.map(v => { const lv = lucroDe(v.itens_venda || []); return [new Date(v.data).toLocaleDateString('pt-BR'), nome(v.cliente_id), v.itens_venda.map(t => t.quantidade + '× ' + esc(t.produto)).join(', '), R(v.total), ...(showL ? [lv.base ? R(lv.lucro) : '—'] : []), st(stVenda(v))]; }))}
 </div>
 <div class="foot">Rozivaldo Store · Relatório gerado automaticamente pelo sistema de gestão</div>
 </div></body></html>`;

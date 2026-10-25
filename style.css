@@ -129,3 +129,27 @@ aside .mic{margin-left:auto;color:#ec4899}aside .mic .ic{width:16px;height:16px}
 /* Marcas */
 .mlg{width:58px;height:40px;flex:none;background:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;font-weight:800;color:#1c2433;vertical-align:middle}
 .mlg img{max-width:90%;max-height:88%;object-fit:contain}
+
+/* Privacidade (olhinho) */
+.eye{background:none;border:0;color:#9fb0cf;cursor:pointer;padding:2px 6px;vertical-align:middle;display:inline-flex}.eye:hover{color:#fff}.eye .ic{width:18px;height:18px}
+body.oculto .ocw{color:var(--tx)!important}
+body.oculto input.ci{-webkit-text-security:disc;text-security:disc}
+.oc{font-variant-numeric:tabular-nums}
+/* Fotos e tamanhos do produto */
+.fts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ft{position:relative;width:78px;height:78px;border-radius:10px;overflow:hidden;background:#1b2740}
+.ft img{width:100%;height:100%;object-fit:cover}
+.ft .x,.ft .st{position:absolute;top:3px;width:22px;height:22px;border-radius:50%;border:0;background:#000b;color:#fff;font-size:.72rem;cursor:pointer;line-height:1}
+.ft .x{right:3px}.ft .st{left:3px;color:#facc15}
+.ft .pri{position:absolute;bottom:3px;left:3px;font-size:.58rem;background:var(--blue);color:#fff;padding:1px 6px;border-radius:99px}
+.ft.add{display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:var(--mut);border:2px dashed #3a4a6b;cursor:pointer;background:none}
+.tiles.tz{grid-template-columns:repeat(5,1fr)}.tiles.tz .tile{padding:8px 2px;font-size:.78rem}
+
+/* Notas fiscais */
+.nft{width:52px;height:66px;flex:none;border-radius:8px;overflow:hidden;background:#1b2740;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+.nft img{width:100%;height:100%;object-fit:cover}
+.nfimg{width:100%;border-radius:8px;margin:6px 0;background:#fff;display:block}
+.nfpl{max-height:220px;overflow-y:auto;margin-top:6px}
+label.btn{display:inline-block;text-align:center}
+
+.nf .tag{white-space:nowrap}
