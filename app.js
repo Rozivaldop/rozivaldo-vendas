@@ -1558,7 +1558,7 @@ function fillRow(row, i) {
 function iniciaVenda() {
   PKEY = ''; PDATES = []; VP = { q: '', cat: 'Todos', sub: '', marca: '' }; vpDesenha();
   if (EDIT) { AUTO = null; return carregaEdicao(); }
-  if (PRE) { PEDIDO = PRE.pedido; PRE.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); }); PRE = null; toast(PEDIDO ? 'Pedido carregado. Confira e registre a venda.' : 'Produto adicionado. Escolha o cliente e registre a venda.'); }
+  if (PRE) { PEDIDO = PRE.pedido; PRE.itens.forEach(i => { addItem(); fillRow($('#its').lastElementChild, i); }); const pagoPre = PRE.pago; PRE = null; if (pagoPre) { const ff = $('#view form'); ff.pago.value = Number(pagoPre).toFixed(2); ff.forma.value = 'Pix'; } toast(pagoPre ? 'Pedido carregado com o valor do Pix. Confira se o Pix caiu na conta antes de registrar.' : PEDIDO ? 'Pedido carregado. Confira e registre a venda.' : 'Produto adicionado. Escolha o cliente e registre a venda.'); }
   else { PEDIDO = null; addItem(); }
   calc();
   if (AUTO == 'ouvir') ouvir(); else if (AUTO == 'foco') $('#frase').focus();
@@ -1618,6 +1618,9 @@ function aplicaVoz(txt) {
 
 let PD = { f: 'novos' };
 const PDS = { novos: ['novo'], analise: ['analise'], vendidos: ['convertido'], recusados: ['recusado'] };
+const pagTxt = p => p.pagamento == 'pix_total' ? `<small class="blk">💸 Pix do valor total: ${R(p.valor_pix)} · confira se caiu na conta${p.pix_txid ? ' (código ' + esc(p.pix_txid) + ')' : ''}</small>`
+  : p.pagamento == 'pix_entrada' ? `<small class="blk">💸 Pix de entrada: ${R(p.valor_pix)} · restante ${R(p.total - p.valor_pix)}${p.pix_txid ? ' (código ' + esc(p.pix_txid) + ')' : ''}</small>`
+  : p.pagamento == 'combinar' ? '<small class="blk">🤝 Cliente quer combinar o pagamento</small>' : '';
 function pedCard(p) {
   const st = p.status, itens = p.itens || [];
   const linha = i => {
@@ -1626,6 +1629,7 @@ function pedCard(p) {
     return `<small class="blk">${i.qtd}× ${esc(i.nome)} — ${R(i.preco)}${av}</small>`;
   };
   return `<div class="card"><div class="row"><b>${esc(p.nome)} ${st == 'analise' ? '<em class="tag wait">Em análise</em>' : ''}</b><b>${R(p.total)}</b></div><small class="blk">${esc(p.telefone || '')} · ${D(p.criado_em)}</small>
+  ${pagTxt(p)}${p.obs ? `<small class="blk">📝 ${esc(p.obs)}</small>` : ''}
   ${itens.map(linha).join('')}
   <div class="row" style="margin-top:8px">${st == 'novo' || st == 'analise' ? `<button class="btn" onclick="virarVenda('${p.id}')">Viável: virar venda</button>${st == 'novo' ? `<button class="btn alt" onclick="pedStatus('${p.id}','analise')">Em análise</button>` : ''}<button class="btn alt red" onclick="pedStatus('${p.id}','recusado')">Não viável</button>` : st == 'recusado' ? `<button class="btn alt" onclick="pedStatus('${p.id}','novo')">Reabrir</button>` : '<small class="grn">✓ virou venda</small>'}
   ${p.telefone ? `<button class="lnk" onclick="pedZap('${p.id}')">WhatsApp</button>` : ''}<button class="lnk red" onclick="del('pedidos','${p.id}')">Excluir</button></div></div>`;
@@ -1657,7 +1661,7 @@ async function virarVenda(id) {
     if (r.error) return toast('Erro: ' + r.error.message);
     c = r.data; await load();
   }
-  PRE = { pedido: id, itens: p.itens.map(i => ({ pid: i.id, produto: i.nome, categoria: i.categoria, qtd: i.qtd, preco: (S.pr.find(x => x.id == i.id) || i).preco })) };
+  PRE = { pedido: id, itens: p.itens.map(i => ({ pid: i.id, produto: i.nome, categoria: i.categoria, qtd: i.qtd, preco: (S.pr.find(x => x.id == i.id) || i).preco })), pago: p.pagamento == 'pix_total' ? p.total : p.pagamento == 'pix_entrada' ? p.valor_pix : 0 };
   go('venda', c.id);
 }
 
