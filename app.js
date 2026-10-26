@@ -48,6 +48,15 @@ function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+const ehDuplicado = e => e && (e.code == '23505' || /duplicate key|unique constraint/i.test(e.message || ''));
+async function garanteSub(area, nome) {
+  let ex = subsDe(area).find(n => nz(n) == nz(nome)); if (ex) return ex;
+  const r = await db.from('subcategorias').insert({ area, nome });
+  if (r.error && !ehDuplicado(r.error)) throw r.error;
+  await load();                                   // atualiza a lista na hora (mesmo que o resto falhe)
+  ex = subsDe(area).find(n => nz(n) == nz(nome));
+  return ex || nome;
+}
 /* ===== NOTAS FISCAIS DE COMPRA (prazo de troca) ===== */
 let NF = { f: 'prazo', q: '', m: '', p: '' }, NFP = [], NFSEL = new Set(), NFEDIT = null, NFSAVING = false;
 const NFB = 'notas';
@@ -370,7 +379,7 @@ async function salvaMarca(e, id) {
   const pz = fd.get('prazo_troca'), d = { nome, areas, prazo_troca: pz === '' || pz == null ? null : Math.max(0, Math.min(365, +pz || 0)), cnpj: String(fd.get('cnpj') || '').replace(/\D/g, '') || null }, file = fd.get('logo');
   if (file && file.size) { try { d.logo = await redimLogo(file); } catch (x) { return toast('Não consegui ler essa imagem'); } }
   const r = id ? await db.from('marcas').update(d).eq('id', id) : await db.from('marcas').insert(d);
-  if (r.error) return toast('Erro: ' + r.error.message);
+  if (r.error) { if (ehDuplicado(r.error)) { await load(); render(); formMarcas(); return toast('Essa marca já existe: atualizei a lista'); } return toast('Erro: ' + r.error.message); }
   await load(); render(); formMarcas(); toast('Marca salva');
 }
 async function excluiMarca(id) {
@@ -1131,8 +1140,8 @@ async function criaSub(e, area) {
   if (!n) return;
   if (subsDe(area).some(x => nz(x) == nz(n))) return toast('Essa categoria já existe em ' + area);
   const { error } = await db.from('subcategorias').insert({ area, nome: n });
-  if (error) return toast('Erro: ' + error.message);
-  await load(); render(); formCats(); toast('Categoria criada');
+  if (error && !ehDuplicado(error)) return toast('Erro: ' + error.message);
+  await load(); render(); formCats(); toast(error ? 'Essa categoria já existia: atualizei a lista' : 'Categoria criada');
 }
 async function renomeiaSub(id) {
   const s = S.sc.find(x => x.id == id); if (!s) return;
@@ -1189,9 +1198,7 @@ async function salvaProd(e, id) {
   let sub = fd.get('subcategoria') || '';
   if (sub == '__nova') {
     sub = (fd.get('nova_sub') || '').trim().replace(/\s+/g, ' ');
-    const ex = subsDe(d.categoria).find(n => nz(n) == nz(sub));
-    if (sub && ex) sub = ex;
-    else if (sub) { const r = await db.from('subcategorias').insert({ area: d.categoria, nome: sub }); if (r.error) return toast('Erro: ' + r.error.message); }
+    if (sub) { try { sub = await garanteSub(d.categoria, sub); } catch (er) { return toast('Erro: ' + er.message); } }
   }
   d.subcategoria = sub || null;
   let mid = fd.get('marca') || null;
@@ -1200,7 +1207,14 @@ async function salvaProd(e, id) {
     if (nm) {
       const ex = S.mc.find(m => nz(m.nome) == nz(nm));
       if (ex) { mid = ex.id; if (!(ex.areas || []).includes(d.categoria)) await db.from('marcas').update({ areas: [...(ex.areas || []), d.categoria] }).eq('id', ex.id); }
-      else { const r = await db.from('marcas').insert({ nome: nm, areas: [d.categoria] }).select().single(); if (r.error) return toast('Erro: ' + r.error.message); mid = r.data.id; }
+      else {
+        const r = await db.from('marcas').insert({ nome: nm, areas: [d.categoria] }).select().single();
+        if (r.error && !ehDuplicado(r.error)) return toast('Erro: ' + r.error.message);
+        await load();
+        const e2 = r.error ? S.mc.find(m => nz(m.nome) == nz(nm)) : r.data;
+        if (!e2) return toast('Erro: não consegui criar a marca');
+        mid = e2.id;
+      }
     }
   }
   d.marca_id = mid;
