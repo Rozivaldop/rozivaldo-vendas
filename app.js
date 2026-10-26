@@ -1222,9 +1222,17 @@ async function salvaProd(e, id) {
   d.tamanhos = modo == 'lista' ? fd.getAll('tam').map(t => String(t).replace(/:/g, '')) : [];
   d.tam_consulta = modo == 'consulta';
   if (FTD) { d.foto = FT[0] ? await redimN(FT[0], 420, 0.8) : null; d.n_fotos = FT.length; }
-  const r0 = id ? await db.from('produtos').update(d).eq('id', id).select('id').single() : await db.from('produtos').insert(d).select('id').single();
+  const SQLDE = { tamanhos: 'atualizacao-fotos-tamanhos.sql', tam_consulta: 'atualizacao-fotos-tamanhos.sql', n_fotos: 'atualizacao-fotos-tamanhos.sql', marca_id: 'atualizacao-marcas.sql', subcategoria: 'atualizacao-categorias.sql', custo: 'atualizacao-lucro.sql', sku: 'atualizacao-inicio.sql' }, perdidos = [];
+  let r0;
+  for (let i = 0; i < 8; i++) {
+    r0 = id ? await db.from('produtos').update(d).eq('id', id).select('id').single() : await db.from('produtos').insert(d).select('id').single();
+    const mc = r0.error && /Could not find the '([a-z_]+)' column/i.exec(r0.error.message || '');
+    if (mc && SQLDE[mc[1]] && mc[1] in d) { perdidos.push(mc[1]); delete d[mc[1]]; continue; }
+    break;
+  }
   if (r0.error) return toast('Erro: ' + r0.error.message);
-  if (FTD) {
+  if (perdidos.length) alert('Produto salvo, mas o banco ainda não tem estes campos: ' + perdidos.join(', ') + '.\n\nPara guardá-los, rode o arquivo ' + [...new Set(perdidos.map(c => SQLDE[c]))].join(' e ') + ' no Supabase (SQL Editor) e salve o produto de novo.');
+  if (FTD && !perdidos.includes('n_fotos')) {
     await db.from('produto_fotos').delete().eq('produto_id', r0.data.id);
     if (FT.length) { const rf = await db.from('produto_fotos').insert(FT.map((url, i) => ({ produto_id: r0.data.id, ordem: i, url }))); if (rf.error) toast('Produto salvo, mas as fotos deram erro: ' + rf.error.message); }
   }
