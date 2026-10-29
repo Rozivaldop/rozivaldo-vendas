@@ -9,12 +9,12 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [], mc: [], nf: [] }, cur = 'inicio', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [], mc: [], nf: [], an: [], cfg: {}, et: [] }, cur = 'inicio', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
 async function load() {
-  const [c, v, p, pr, pa, ct, pd, sg, sc, mc, nf] = await Promise.all([
+  const [c, v, p, pr, pa, ct, pd, sg, sc, mc, nf, an, cf, et] = await Promise.all([
     db.from('clientes').select('*').order('nome'),
     db.from('vendas').select('*, itens_venda(*)').order('data', { ascending: false }),
     db.from('pagamentos').select('*').order('criado_em', { ascending: false }),
@@ -25,9 +25,12 @@ async function load() {
     db.from('sugestoes').select('*').order('criado_em', { ascending: false }),
     db.from('subcategorias').select('*').order('nome'),
     db.from('marcas').select('*').order('nome'),
-    db.from('notas').select('*').order('data_compra', { ascending: false }).limit(500)
+    db.from('notas').select('*').order('data_compra', { ascending: false }).limit(500),
+    db.from('anuncios').select('*').order('ordem'),
+    db.from('configuracoes').select('*'),
+    db.from('etapas_pedido').select('*').order('ordem')
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [], mc: mc.data || [], nf: nf.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [], mc: mc.data || [], nf: nf.data || [], an: an.data || [], cfg: Object.fromEntries((cf.data || []).map(x => [x.chave, x.valor])), et: et.data || [] };
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
@@ -37,7 +40,7 @@ function info(id) {
 function go(v, id, ed) { $('#side').classList.remove('open'); cur = v; curId = id || null; EDIT = ed || null; render(); window.scrollTo(0, 0); }
 function render() {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav == cur || (cur == 'ficha' && b.dataset.nav == 'clientes')));
-  $('#view').innerHTML = { inicio, vitrine, notas, procuras, cobranca, fluxo, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
+  $('#view').innerHTML = { inicio, vitrine, anuncios, notas, procuras, cobranca, fluxo, dash, clientes, venda, ficha, catalogo, relatorio, financeiro, historico, recebimentos, contas, ajustes, pedidos }[cur]();
   if (cur == 'inicio') vitInit();
   if (cur == 'vitrine') vtxt();
   if (cur == 'venda') iniciaVenda();
@@ -48,6 +51,174 @@ function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== CATÁLOGO VIRTUAL: anúncios, textos/contatos e etapas do pedido ===== */
+const cfgGet = (k, d = '') => { const v = (S.cfg || {})[k]; return v == null ? d : v; };
+const semTabela = e => e && /Could not find the table|relation .* does not exist|schema cache/i.test(e.message || '') ? 'Falta rodar o arquivo atualizacao-catalogo-virtual.sql no Supabase (SQL Editor).' : (e ? e.message : '');
+function anSit(a) {
+  if (!a.ativo) return ['Pausado', '']; if (a.inicio && HOJE < a.inicio) return ['Agendado', 'wait']; if (a.fim && HOJE > a.fim) return ['Encerrado', ''];
+  return ['No ar', 'ok'];
+}
+function anDestino(a) {
+  const v = a.link_valor || '';
+  return { marca: 'Marca: ' + ((S.mc.find(m => m.id == v) || {}).nome || '—'), categoria: 'Categoria: ' + v, subcategoria: 'Categoria: ' + v.replace('|', ' › '), produto: 'Produto: ' + ((S.pr.find(p => p.id == v) || {}).nome || '—'), busca: 'Busca: “' + v + '”', url: 'Link: ' + v }[a.link_tipo] || 'Sem destino (só informativo)';
+}
+const anSlide = a => `<div class="anp" style="background:${esc(a.cor_fundo || '#111111')};color:${esc(a.cor_texto || '#ffffff')}">${a.imagem ? `<img src="${a.imagem}" alt="">` : ''}<div class="anpt"><b>${esc(a.titulo || 'Título do anúncio')}</b>${a.subtitulo ? `<span>${esc(a.subtitulo)}</span>` : ''}${a.link_tipo && a.link_tipo != 'nenhum' ? `<em style="background:${esc(a.cor_texto || '#ffffff')};color:${esc(a.cor_fundo || '#111111')}">${esc(a.texto_botao || 'Ver agora')}</em>` : ''}</div></div>`;
+function anuncios() {
+  const l = [...(S.an || [])].sort((a, b) => a.ordem - b.ordem);
+  return `<div class="row"><h1>Anúncios do catálogo</h1><button class="btn" onclick="formAn()">+ Novo anúncio</button></div>
+  <p class="mut">Banners que aparecem no topo do catálogo do cliente. Ao tocar, o cliente vai para a marca, categoria, produto, busca ou link que você escolher. Promoções (Black Friday, liquidação...) entram aqui, e você liga e desliga quando quiser.</p>
+  ${l.map((a, i) => { const [t, c] = anSit(a); return `<div class="card">${anSlide(a)}<div class="row" style="margin-top:8px"><span><em class="tag ${c}">${t}</em> <small>${esc(anDestino(a))}</small>${a.inicio || a.fim ? `<small class="blk">${a.inicio ? 'de ' + dt(a.inicio) + ' ' : ''}${a.fim ? 'até ' + dt(a.fim) : ''}</small>` : ''}</span>
+    <span><button class="lnk" onclick="anMove('${a.id}',-1)" ${i == 0 ? 'disabled' : ''}>↑</button><button class="lnk" onclick="anMove('${a.id}',1)" ${i == l.length - 1 ? 'disabled' : ''}>↓</button><button class="lnk" onclick="anAtivo('${a.id}')">${a.ativo ? 'Pausar' : 'Ativar'}</button><button class="lnk" onclick="formAn('${a.id}')">Editar</button><button class="lnk red" onclick="anExclui('${a.id}')">Excluir</button></span></div></div>`; }).join('') || '<p class="mut">Nenhum anúncio ainda. O catálogo mostra um banner padrão até você criar o primeiro.</p>'}`;
+}
+let ANIMG = null;
+function formAn(id) {
+  const a = id ? S.an.find(x => x.id == id) : { cor_fundo: '#111111', cor_texto: '#ffffff', ativo: true, link_tipo: 'nenhum', texto_botao: 'Ver agora' };
+  if (!a) return; ANIMG = a.imagem || null;
+  modal(`<h2>${id ? 'Editar' : 'Novo'} anúncio</h2><div id="anprev"></div>
+  <form id="anf" onsubmit="salvaAn(event,'${id || ''}')">
+  <input class="inp" name="titulo" maxlength="80" placeholder="Título (ex: Black Friday Rozivaldo)" value="${esc(a.titulo)}" required oninput="anPrev()">
+  <input class="inp" name="subtitulo" maxlength="140" placeholder="Subtítulo (opcional)" value="${esc(a.subtitulo)}" oninput="anPrev()">
+  <input class="inp" name="texto_botao" maxlength="30" placeholder="Texto do botão (ex: Ver ofertas)" value="${esc(a.texto_botao)}" oninput="anPrev()">
+  <div class="card"><small>🖼️ Imagem do anúncio (opcional, formato horizontal)</small><div class="row" style="margin-top:6px"><label class="btn alt">Escolher imagem<input type="file" accept="image/*" hidden onchange="anImg(this)"></label><button type="button" class="lnk red" onclick="ANIMG=null;anPrev()">Remover imagem</button></div></div>
+  <div class="row" style="justify-content:flex-start;gap:18px"><label><small>Cor de fundo</small><br><input type="color" name="cor_fundo" value="${esc(a.cor_fundo || '#111111')}" oninput="anPrev()"></label><label><small>Cor do texto</small><br><input type="color" name="cor_texto" value="${esc(a.cor_texto || '#ffffff')}" oninput="anPrev()"></label></div>
+  <small>Para onde o cliente vai ao tocar no anúncio?</small>
+  <select class="inp" name="link_tipo" onchange="anTipo();anPrev()">${[['nenhum', 'Ninguém (só informativo)'], ['marca', 'Uma marca'], ['categoria', 'Uma categoria (área)'], ['subcategoria', 'Uma subcategoria'], ['produto', 'Um produto'], ['busca', 'Uma busca'], ['url', 'Link externo']].map(([v, t]) => `<option value="${v}" ${a.link_tipo == v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+  <div id="anv"></div>
+  <div class="row"><label style="flex:1"><small>Começa em (opcional)</small><input class="inp" type="date" name="inicio" value="${a.inicio || ''}"></label><label style="flex:1"><small>Termina em (opcional)</small><input class="inp" type="date" name="fim" value="${a.fim || ''}"></label></div>
+  <label class="card row"><span>No ar (ativo)</span><input type="checkbox" name="ativo" ${a.ativo ? 'checked' : ''}></label>
+  <button class="btn w">Salvar anúncio</button><button type="button" class="btn alt w" style="margin-top:8px" onclick="fecha()">Cancelar</button></form>`);
+  anTipo(a.link_valor); anPrev();
+}
+function anTipo(val) {
+  const f = $('#anf'), t = f.link_tipo.value, v = $('#anv'), sel = x => (val != null && String(val) == String(x) ? 'selected' : '');
+  v.innerHTML = { nenhum: '',
+    marca: `<select class="inp" name="lval">${S.mc.map(m => `<option value="${m.id}" ${sel(m.id)}>${esc(m.nome)}</option>`).join('')}</select>`,
+    categoria: `<select class="inp" name="lval">${CATS.map(k => `<option ${sel(k)}>${k}</option>`).join('')}</select>`,
+    subcategoria: `<select class="inp" name="lval">${S.sc.map(s => `<option value="${esc(s.area + '|' + s.nome)}" ${sel(s.area + '|' + s.nome)}>${esc(s.area)} › ${esc(s.nome)}</option>`).join('')}</select>`,
+    produto: `<select class="inp" name="lval">${[...S.pr].sort((a, b) => a.nome.localeCompare(b.nome)).map(p => `<option value="${p.id}" ${sel(p.id)}>${esc(p.nome)}</option>`).join('')}</select>`,
+    busca: `<input class="inp" name="lval" maxlength="60" placeholder="O que buscar (ex: camisa polo)" value="${esc(val || '')}">`,
+    url: `<input class="inp" name="lval" type="url" maxlength="300" placeholder="https://..." value="${esc(val || '')}">` }[t] || '';
+}
+function anPrev() {
+  const f = $('#anf'), p = $('#anprev'); if (!f || !p) return;
+  p.innerHTML = anSlide({ titulo: f.titulo.value, subtitulo: f.subtitulo.value, texto_botao: f.texto_botao.value, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, imagem: ANIMG, link_tipo: f.link_tipo.value });
+}
+async function anImg(inp) {
+  const f = inp.files[0]; inp.value = ''; if (!f) return;
+  try { ANIMG = await redimN(await fileUrl(f), 1600, 0.82); } catch (e) { return toast('Não consegui ler essa imagem'); }
+  anPrev();
+}
+async function salvaAn(e, id) {
+  e.preventDefault();
+  const f = e.target, tipo = f.link_tipo.value, val = f.lval ? String(f.lval.value || '').trim() : '';
+  if (tipo != 'nenhum' && !val) return toast('Escolha para onde o anúncio leva');
+  if (tipo == 'url' && !/^https?:\/\//i.test(val)) return toast('O link precisa começar com http:// ou https://');
+  const ordem = id ? (S.an.find(x => x.id == id) || {}).ordem : Math.max(0, ...S.an.map(a => a.ordem)) + 1;
+  const d = { titulo: f.titulo.value.trim(), subtitulo: f.subtitulo.value.trim() || null, texto_botao: f.texto_botao.value.trim() || null, imagem: ANIMG, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, link_tipo: tipo, link_valor: tipo == 'nenhum' ? null : val, inicio: f.inicio.value || null, fim: f.fim.value || null, ativo: f.ativo.checked, ordem };
+  const r = id ? await db.from('anuncios').update(d).eq('id', id) : await db.from('anuncios').insert(d);
+  if (r.error) return toast('Erro: ' + semTabela(r.error));
+  fecha(); await load(); render(); toast('Anúncio salvo');
+}
+async function anMove(id, dir) {
+  const l = [...S.an].sort((a, b) => a.ordem - b.ordem), i = l.findIndex(x => x.id == id), j = i + dir; if (i < 0 || j < 0 || j >= l.length) return;
+  [l[i], l[j]] = [l[j], l[i]];
+  for (let k = 0; k < l.length; k++) if (l[k].ordem !== k) { const r = await db.from('anuncios').update({ ordem: k }).eq('id', l[k].id); if (r.error) return toast('Erro: ' + semTabela(r.error)); }
+  await load(); render();
+}
+async function anAtivo(id) { const a = S.an.find(x => x.id == id); if (!a) return; const { error } = await db.from('anuncios').update({ ativo: !a.ativo }).eq('id', id); if (error) return toast('Erro: ' + semTabela(error)); await load(); render(); toast(a.ativo ? 'Anúncio pausado' : 'Anúncio no ar'); }
+async function anExclui(id) { if (!confirm('Excluir este anúncio?')) return; const { error } = await db.from('anuncios').delete().eq('id', id); if (error) return toast('Erro: ' + semTabela(error)); await load(); render(); toast('Anúncio excluído'); }
+/* ---- textos e contatos ---- */
+const cardCatalogo = () => `<div class="card"><h2>🛍️ Catálogo virtual</h2><small class="blk">Textos e contatos que aparecem no catálogo do cliente.</small>
+  <form onsubmit="salvaCfg(event)">
+  <label class="row" style="margin-top:8px"><small>Mostrar a faixa de aviso no topo</small><input type="checkbox" name="faixa_ativa" ${cfgGet('faixa_ativa', 'true') != 'false' ? 'checked' : ''}></label>
+  <input class="inp" name="faixa_texto" maxlength="120" placeholder="Texto da faixa do topo" value="${esc(cfgGet('faixa_texto', 'CATÁLOGO VIRTUAL · ROZIVALDO STORE'))}">
+  <input class="inp" name="whatsapp" inputmode="tel" maxlength="20" placeholder="WhatsApp da loja com DDD (ex: 84999998888)" value="${esc(cfgGet('whatsapp'))}">
+  <input class="inp" name="instagram" maxlength="40" placeholder="Instagram (sem @)" value="${esc(cfgGet('instagram'))}">
+  <input class="inp" name="horario" maxlength="80" placeholder="Horário de atendimento (ex: Seg a Sáb, 9h às 18h)" value="${esc(cfgGet('horario'))}">
+  <input class="inp" name="endereco" maxlength="120" placeholder="Endereço da loja (opcional)" value="${esc(cfgGet('endereco'))}">
+  <button class="btn w">Salvar</button></form>
+  <div class="row" style="margin-top:10px;justify-content:flex-start"><button class="btn alt" onclick="go('anuncios')">📣 Gerenciar anúncios</button><button class="btn alt" onclick="formEtapas()">📦 Etapas do pedido</button></div></div>
+`;
+async function salvaCfg(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target), linhas = [{ chave: 'faixa_ativa', valor: fd.get('faixa_ativa') ? 'true' : 'false' }, ...['faixa_texto', 'whatsapp', 'instagram', 'horario', 'endereco'].map(k => ({ chave: k, valor: String(fd.get(k) || '').trim() }))];
+  const { error } = await db.from('configuracoes').upsert(linhas);
+  if (error) return toast('Erro: ' + semTabela(error));
+  await load(); render(); toast('Catálogo atualizado');
+}
+/* ---- etapas do pedido ---- */
+function formEtapas() {
+  const l = [...(S.et || [])].sort((a, b) => a.ordem - b.ordem);
+  modal(`<h2>📦 Etapas do pedido</h2><p class="mut">Os passos que o cliente vê em "Acompanhar pedido". Você avança cada pedido por eles em Pedidos online.</p>
+  ${l.map((x, i) => `<div class="card"><div class="row"><b>${i + 1}. ${esc(x.nome)}</b><span><button class="lnk" onclick="etMove('${x.id}',-1)" ${i == 0 ? 'disabled' : ''}>↑</button><button class="lnk" onclick="etMove('${x.id}',1)" ${i == l.length - 1 ? 'disabled' : ''}>↓</button><button class="lnk" onclick="etEdita('${x.id}')">Editar</button><button class="lnk red" onclick="etExclui('${x.id}')">Excluir</button></span></div><small class="blk">${esc(x.descricao)}</small></div>`).join('') || '<p class="mut">Nenhuma etapa. Rode o SQL do catálogo virtual para criar as padrão.</p>'}
+  <form onsubmit="etNova(event)"><input class="inp" name="nome" maxlength="50" placeholder="Nova etapa (ex: Saiu para entrega)" required><input class="inp" name="descricao" maxlength="160" placeholder="O que o cliente vê nessa etapa"><button class="btn w">Adicionar etapa</button></form>`);
+}
+async function etNova(e) {
+  e.preventDefault(); const f = e.target;
+  const { error } = await db.from('etapas_pedido').insert({ nome: f.nome.value.trim(), descricao: f.descricao.value.trim() || null, ordem: Math.max(0, ...S.et.map(x => x.ordem)) + 1 });
+  if (error) return toast('Erro: ' + semTabela(error));
+  await load(); render(); formEtapas(); toast('Etapa adicionada');
+}
+async function etEdita(id) {
+  const x = S.et.find(e => e.id == id); if (!x) return;
+  const nome = prompt('Nome da etapa:', x.nome); if (nome == null || !nome.trim()) return;
+  const desc = prompt('O que o cliente vê nessa etapa:', x.descricao || ''); if (desc == null) return;
+  const { error } = await db.from('etapas_pedido').update({ nome: nome.trim(), descricao: desc.trim() || null }).eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); formEtapas();
+}
+async function etMove(id, dir) {
+  const l = [...S.et].sort((a, b) => a.ordem - b.ordem), i = l.findIndex(x => x.id == id), j = i + dir; if (i < 0 || j < 0 || j >= l.length) return;
+  const a = l[i].ordem, b = l[j].ordem;
+  await db.from('etapas_pedido').update({ ordem: b }).eq('id', l[i].id); await db.from('etapas_pedido').update({ ordem: a }).eq('id', l[j].id);
+  await load(); render(); formEtapas();
+}
+async function etExclui(id) {
+  if (S.et.length <= 1) return toast('Deixe pelo menos uma etapa');
+  if (!confirm('Excluir esta etapa? Pedidos que estavam nela voltam para a primeira etapa.')) return;
+  const { error } = await db.from('etapas_pedido').delete().eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); formEtapas();
+}
+/* ---- avançar etapa nos pedidos ---- */
+const etLista = () => [...(S.et || [])].sort((a, b) => a.ordem - b.ordem);
+function etapaUI(p) {
+  const l = etLista(); if (!p.codigo || !l.length || p.status == 'recusado') return '';
+  const cur = l.findIndex(e => e.id == p.etapa_id), i = cur < 0 ? 0 : cur, prox = l[i + 1];
+  return `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"><small class="blk">📦 Código <b>${esc(p.codigo)}</b> · etapa: <b>${esc(l[i].nome)}</b> (${i + 1}/${l.length})</small>
+  <div class="row" style="margin-top:6px;justify-content:flex-start"><select class="inp" style="width:auto;margin:0" onchange="pedEtapa('${p.id}',this.value)">${l.map((e, k) => `<option value="${e.id}" ${k == i ? 'selected' : ''}>${k + 1}. ${esc(e.nome)}</option>`).join('')}</select>${prox ? `<button class="btn" onclick="pedEtapa('${p.id}','${prox.id}')">Avançar: ${esc(prox.nome)}</button>` : ''}<button class="lnk" onclick="pedAviso('${p.id}')">📲 Avisar cliente</button></div></div>`;
+}
+async function pedEtapa(id, etapaId) {
+  const p = S.pt.find(x => x.id == id), e = S.et.find(x => x.id == etapaId); if (!p || !e) return;
+  const nota = prompt('Recado para o cliente nesta etapa (opcional):', ''); if (nota === null) { render(); return; }
+  const r = await db.from('pedidos').update({ etapa_id: e.id, etapa_em: new Date().toISOString() }).eq('id', id);
+  if (r.error) return toast('Erro: ' + semTabela(r.error));
+  await db.from('historico_pedido').insert({ pedido_id: id, etapa_id: e.id, etapa_nome: e.nome, nota: nota.trim() || null });
+  await load(); render(); toast('Etapa atualizada: ' + e.nome);
+}
+function pedAviso(id) {
+  const p = S.pt.find(x => x.id == id); if (!p) return;
+  const l = etLista(), e = l.find(x => x.id == p.etapa_id) || l[0];
+  window.open(zapLink(p, `Olá, ${p.nome}! Seu pedido ${p.codigo} agora está em: ${e.nome}.\n\nAcompanhe aqui: ${LINK()}#v=acompanhar&c=${p.codigo}`), '_blank');
+}
+/* ===== TEMA: escuro / claro / automático ===== */
+const temaModo = () => { try { return localStorage.getItem('rs_tema') || 'escuro'; } catch (e) { return 'escuro'; } };
+const temaEfetivo = () => { const m = temaModo(); return m == 'auto' ? (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'escuro') : m; };
+function temaAplica() {
+  const c = temaEfetivo() == 'claro';
+  document.documentElement.classList.toggle('claro', c);
+  const mt = document.getElementById('themeMeta'); if (mt) mt.content = c ? '#ffffff' : '#0f1521';
+  const b = document.getElementById('temaBtn');
+  if (b) { b.innerHTML = `<svg class="ic" style="width:20px;height:20px"><use href="#${c ? 'i-moon' : 'i-sun'}"/></svg>`; b.title = c ? 'Mudar para o modo escuro' : 'Mudar para o modo claro'; }
+}
+function temaSet(m) { try { localStorage.setItem('rs_tema', m); } catch (e) {} temaAplica(); if (cur == 'ajustes') render(); toast({ escuro: '🌙 Modo escuro', claro: '☀️ Modo claro', auto: '🖥️ Automático (segue o aparelho)' }[m]); }
+function temaToggle() { temaSet(temaEfetivo() == 'claro' ? 'escuro' : 'claro'); }
+if (window.matchMedia) { const mq = matchMedia('(prefers-color-scheme: light)'); if (mq.addEventListener) mq.addEventListener('change', () => { if (temaModo() == 'auto') temaAplica(); }); }
+const cardTema = () => `<div class="card"><h2>🎨 Aparência</h2><small class="blk">Escolha como o sistema aparece neste aparelho.</small>
+  <div class="row" style="justify-content:flex-start;margin-top:8px">${[['escuro', '🌙 Escuro'], ['claro', '☀️ Claro'], ['auto', '🖥️ Automático']].map(([k, t]) => `<button class="btn ${temaModo() == k ? '' : 'alt'}" onclick="temaSet('${k}')">${t}</button>`).join('')}</div>
+  <small class="blk" style="margin-top:6px">Automático segue o modo claro ou escuro do seu aparelho. Você também pode alternar pelo botão ☀️/🌙 no topo.</small></div>
+`;
+temaAplica();
 const ehDuplicado = e => e && (e.code == '23505' || /duplicate key|unique constraint/i.test(e.message || ''));
 async function garanteSub(area, nome) {
   let ex = subsDe(area).find(n => nz(n) == nz(nome)); if (ex) return ex;
@@ -1547,6 +1718,8 @@ function ajustes() {
   <div class="card"><h2>Alterar senha</h2><form onsubmit="novaSenha(event)">
   <input class="inp" name="s1" type="password" minlength="8" placeholder="Nova senha (mínimo 8 caracteres)" required>
   <input class="inp" name="s2" type="password" placeholder="Repita a nova senha" required><button class="btn w">Salvar nova senha</button></form></div>
+  ${cardTema()}
+  ${cardCatalogo()}
   ${cardInstalar()}
   <div class="card"><h2>Backup dos dados</h2><small class="blk">Baixa um arquivo com clientes, vendas, pagamentos, parcelas, produtos e contas. Guarde em local seguro.</small>
   <button class="btn alt w" style="margin-top:8px" onclick="backup()">Baixar backup</button></div>`;
@@ -1651,7 +1824,7 @@ function pedCard(p) {
     return `<small class="blk">${i.qtd}× ${esc(i.nome)} — ${R(i.preco)}${av}</small>`;
   };
   return `<div class="card"><div class="row"><b>${esc(p.nome)} ${st == 'analise' ? '<em class="tag wait">Em análise</em>' : ''}</b><b>${R(p.total)}</b></div><small class="blk">${esc(p.telefone || '')} · ${D(p.criado_em)}</small>
-  ${pagTxt(p)}${p.obs ? `<small class="blk">📝 ${esc(p.obs)}</small>` : ''}
+  ${pagTxt(p)}${etapaUI(p)}${p.obs ? `<small class="blk">📝 ${esc(p.obs)}</small>` : ''}
   ${itens.map(linha).join('')}
   <div class="row" style="margin-top:8px">${st == 'novo' || st == 'analise' ? `<button class="btn" onclick="virarVenda('${p.id}')">Viável: virar venda</button>${st == 'novo' ? `<button class="btn alt" onclick="pedStatus('${p.id}','analise')">Em análise</button>` : ''}<button class="btn alt red" onclick="pedStatus('${p.id}','recusado')">Não viável</button>` : st == 'recusado' ? `<button class="btn alt" onclick="pedStatus('${p.id}','novo')">Reabrir</button>` : '<small class="grn">✓ virou venda</small>'}
   ${p.telefone ? `<button class="lnk" onclick="pedZap('${p.id}')">WhatsApp</button>` : ''}<button class="lnk red" onclick="del('pedidos','${p.id}')">Excluir</button></div></div>`;

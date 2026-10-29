@@ -153,3 +153,56 @@ body.oculto input.ci{-webkit-text-security:disc;text-security:disc}
 label.btn{display:inline-block;text-align:center}
 
 .nf .tag{white-space:nowrap}
+
+/* ===== MODO CLARO (ativado pelo botão ☀️/🌙 ou em Configurações → Aparência) ===== */
+html.claro{--bg:#f3f4f7;--pan:#ffffff;--line:#e2e5eb;--tx:#111827;--mut:#667085;color-scheme:light}
+html:not(.claro){color-scheme:dark}
+html.claro aside,html.claro #top{background:#fff}
+html.claro aside{border-right-color:#e2e5eb}
+html.claro aside button,html.claro aside summary,html.claro .bell{color:#374151}
+html.claro aside button.on{color:#fff}
+html.claro aside summary:hover,html.claro aside button:hover{background:#eef1f6}
+html.claro aside button.on:hover{background:var(--blue)}
+html.claro aside summary::after{border-color:#667085}
+html.claro .logo svg path{stroke:#111827}
+html.claro .logo svg text{fill:#111827}
+html.claro .logo{color:#111827}
+html.claro .inp,html.claro .tile,html.claro .vpcat{background:#fff}
+html.claro .card,html.claro .item{box-shadow:0 1px 2px #1018280f}
+html.claro .pc,html.claro .mini,html.claro .fc,html.claro .hj,html.claro .vpt{background:#f8f9fb}
+html.claro .ph,html.claro .pc img,html.claro .pimg,html.claro .vpt img,html.claro .vpt .pimg,html.claro .ft,html.claro .barra,html.claro .nft{background:#e7eaf0}
+html.claro .btn.alt{background:#e7eaf0;color:#1f2937}
+html.claro .btn.alt:hover{background:#dde1e8}
+html.claro .tag.ok{background:#dcfce7;color:#166534}
+html.claro .tag.bad{background:#fee2e2;color:#991b1b}
+html.claro .tag.wait{background:#fef3c7;color:#92400e}
+html.claro .lnk{color:#1d4ed8}
+html.claro .lnk.red,html.claro .red{color:var(--red)}
+html.claro .tile:has(input:checked),html.claro .vpt.on{background:#eaf1ff}
+html.claro .hj.bad{background:#fef2f2;border-color:#fecaca}
+html.claro .hj.warn{border-color:#fcd34d}
+html.claro .hj:hover{border-color:var(--blue)}
+html.claro .cob.ok{border-color:#86efac}
+html.claro .audio{background:linear-gradient(135deg,#ffffff,#f7f1fc);border-color:#e6d9f3;color:#111827;box-shadow:0 2px 14px #ec489922}
+html.claro .arw{background:#111827d9}
+html.claro #dots i{background:#cbd2dc}
+html.claro #dots i.on{background:#111827}
+html.claro .vend{border-color:#9ca3af;color:#111827}
+html.claro .subt,html.claro .eye{color:#667085}
+html.claro .eye:hover{color:#111827}
+html.claro .ft.add{border-color:#c5ccd8}
+html.claro .bk{background:#1118279c}
+html.claro [style*="#1d1417"]{background:#fef2f2!important;border-color:#fecaca!important}
+html.claro [style*="#14532d"]{border-color:#86efac!important}
+html.claro .bars .col{color:#667085}
+html.claro ::-webkit-scrollbar-thumb{background:#c9ced8}
+
+html.claro .grn{color:#15803d}
+html.claro .kpi b.grn{color:#15803d}
+
+/* Anúncios (pré-visualização) */
+.anp{position:relative;border-radius:14px;overflow:hidden;min-height:130px;display:flex;align-items:center;margin-bottom:8px}
+.anp img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.anpt{position:relative;padding:18px 20px;display:flex;flex-direction:column;gap:6px;max-width:75%;text-shadow:0 1px 8px #0004}
+.anpt b{font-size:1.25rem;line-height:1.15}.anpt span{opacity:.92;font-size:.9rem}
+.anpt em{align-self:flex-start;font-style:normal;font-weight:700;font-size:.78rem;padding:7px 14px;border-radius:99px;margin-top:4px;text-shadow:none}

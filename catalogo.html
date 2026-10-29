@@ -8,28 +8,27 @@
 <meta name="description" content="Moda, lingerie e sex shop com marcas selecionadas. Pague no Pix.">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#fff;--soft:#f5f5f6;--line:#e6e6e9;--tx:#111;--mut:#6b7280;--ink:#111;--ok:#16a34a;--bad:#dc2626;--r:14px}
 *{box-sizing:border-box}[hidden]{display:none!important}
 html{scroll-behavior:smooth}
-body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--tx);-webkit-font-smoothing:antialiased}
+body{margin:0;font-family:'Barlow',system-ui,sans-serif;background:var(--bg);color:var(--tx);-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;cursor:pointer}
 a{color:inherit}
 small{color:var(--mut)}
-.top{background:#111;color:#fff;text-align:center;font-size:.76rem;letter-spacing:.04em;padding:8px 12px}
-.top b{color:#fff}
+.top{background:#111;color:#fff;font-size:11.5px;letter-spacing:1.4px;text-align:center;padding:6px 10px;font-weight:600;text-transform:uppercase}
 /* cabeçalho */
-.hd{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line)}
+.hd{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 14px rgba(0,0,0,.06)}
 .hdi{max-width:1280px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:16px}
 .burger{display:none;width:42px;height:42px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:1.2rem}
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex:none}
 .logo svg{width:40px;height:40px}.logo b{display:block;font-size:1.08rem;letter-spacing:.06em;line-height:1}.logo small{display:block;font-size:.56rem;letter-spacing:.14em;margin-top:3px}
 .sr{flex:1;max-width:620px;margin:0 auto;position:relative}
-.sr input{width:100%;height:44px;border:1px solid var(--line);border-radius:999px;background:var(--soft);padding:0 44px 0 18px;font:inherit;outline:none}
+.sr input{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:0 44px 0 18px;font:inherit;outline:none}
 .sr input:focus{border-color:#111;background:#fff}
 .sr span{position:absolute;right:16px;top:50%;transform:translateY(-50%);opacity:.55;pointer-events:none}
-.cartb{position:relative;display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border:0;border-radius:999px;background:#111;color:#fff;font-weight:600;flex:none}
+.cartb{position:relative;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 15px;border:0;border-radius:8px;background:#111;color:#fff;font-weight:800;font-size:13px;flex:none}
 .cartb svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .cartb i{font-style:normal;position:absolute;top:-5px;left:26px;min-width:20px;height:20px;border-radius:99px;background:#dc2626;color:#fff;font-size:.7rem;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #fff}
 .cartb small{color:#fff;font-size:.82rem}
@@ -117,13 +116,37 @@ small{color:var(--mut)}
 .bn .lg img{max-width:90%;max-height:90%;object-fit:contain}
 .bn h2{margin:0}
 .vz{text-align:center;padding:50px 16px;color:var(--mut)}
-/* rodapé */
-.ft{background:#111;color:#cfcfd4;margin-top:20px}
-.fti{max-width:1280px;margin:0 auto;padding:34px 18px;display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:30px}
-.ft h5{margin:0 0 10px;color:#fff;font-size:.74rem;letter-spacing:.16em;text-transform:uppercase}
-.ft a,.ft button.l{display:block;background:none;border:0;color:#cfcfd4;padding:4px 0;text-decoration:none;text-align:left;font-size:.9rem}
+/* como comprar + rodapé */
+.como{background:var(--soft);margin-top:44px}
+.comoi{max-width:1280px;margin:0 auto;padding:40px 18px}
+.como h2{margin:0 0 20px;text-align:center;font-size:.95rem;letter-spacing:.16em;text-transform:uppercase}
+.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.steps3>div{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:22px 20px;text-align:center}
+.steps3 .n{width:44px;height:44px;border-radius:50%;background:#111;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;margin-bottom:12px}
+.steps3 b{display:block;margin-bottom:4px}.steps3 small{line-height:1.4;display:block}
+.ctab{margin-top:22px;background:#111;color:#fff;border-radius:22px;padding:30px 34px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.ctab b{display:block;font-size:1.35rem;margin-bottom:4px}.ctab span{color:#cfcfd4}
+.ctab .btn{background:#fff;color:#111;border-color:#fff}.ctab .btn:hover{background:#e9e9ec}
+.ft{background:#0b0b0d;color:#bdbdc4}
+.fti{max-width:1280px;margin:0 auto;padding:44px 18px 30px;display:grid;grid-template-columns:1.3fr .8fr 1.2fr 1.1fr;gap:34px}
+.ft h5{margin:0 0 14px;color:#fff;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase}
+.ft .fl{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ft .fl svg{width:42px;height:42px}.ft .fl b{display:block;color:#fff;letter-spacing:.06em;line-height:1.05}.ft .fl small{display:block;color:#8a8a92;font-size:.58rem;letter-spacing:.14em;margin-top:3px}
+.ft p{margin:0 0 14px;line-height:1.6;font-size:.9rem}
+.ft a,.ft button.l{display:block;background:none;border:0;color:#bdbdc4;padding:5px 0;text-decoration:none;text-align:left;font-size:.9rem;cursor:pointer}
 .ft a:hover,.ft button.l:hover{color:#fff}
-.ft .cp{max-width:1280px;margin:0 auto;padding:14px 18px;border-top:1px solid #2a2a2e;font-size:.76rem;color:#8a8a92}
+.ft .soc{display:flex;gap:10px;flex-wrap:wrap}
+.ft .soc a{display:inline-flex;align-items:center;gap:8px;border:1px solid #2c2c31;border-radius:999px;padding:9px 16px;color:#fff;font-size:.84rem}
+.ft .soc a:hover{background:#fff;color:#111}
+.fmarcas{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fmarcas button{height:50px;background:#fff;border:0;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:6px;font-weight:800;color:#111;transition:.15s}
+.fmarcas button:hover{transform:translateY(-2px)}.fmarcas img{max-width:92%;max-height:92%;object-fit:contain}
+.pays{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+.pays span{border:1px solid #2c2c31;border-radius:8px;padding:6px 12px;font-size:.8rem;color:#fff}
+.fi{font-size:.86rem;line-height:1.5;margin:0 0 8px;display:flex;gap:8px}
+.ft .cp{max-width:1280px;margin:0 auto;padding:16px 18px;border-top:1px solid #222226;font-size:.78rem;color:#7b7b83;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.ft .cp button{background:none;border:1px solid #2c2c31;color:#fff;border-radius:999px;padding:8px 16px;font-size:.78rem}
+.ft .cp button:hover{background:#fff;color:#111}
 /* gaveta do carrinho / menu */
 .scrim{position:fixed;inset:0;background:#0008;z-index:50;opacity:0;pointer-events:none;transition:.2s}
 body.menu .scrim,body.cart .scrim{opacity:1;pointer-events:auto}
@@ -201,7 +224,7 @@ body.cart .drw{transform:none}
 .sk{aspect-ratio:3/4;border-radius:var(--r);background:linear-gradient(90deg,#f1f1f3 25%,#e8e8eb 50%,#f1f1f3 75%);background-size:200% 100%;animation:sh 1.2s infinite}
 @keyframes sh{to{background-position:-200% 0}}
 /* responsivo */
-@media(max-width:980px){.bf{grid-template-columns:1fr 1fr}.hero{grid-template-columns:1fr}.hero .col{display:none}.hero .tx{padding:32px 24px}.dt{grid-template-columns:1fr}.fti{grid-template-columns:1fr 1fr}}
+@media(max-width:980px){.bf{grid-template-columns:1fr 1fr}.hero{grid-template-columns:1fr}.hero .col{display:none}.hero .tx{padding:32px 24px}.dt{grid-template-columns:1fr}.fti{grid-template-columns:1fr 1fr}.steps3{grid-template-columns:1fr}}
 @media(max-width:900px){
  .burger{display:block}.nv{display:none}.shell{grid-template-columns:minmax(0,1fr);padding:14px 14px 30px}
  .side{position:fixed;top:0;left:0;bottom:0;width:min(310px,88%);max-height:none;background:#fff;z-index:60;padding:18px;transform:translateX(-105%);transition:transform .25s;box-shadow:10px 0 40px #0003}
@@ -209,14 +232,61 @@ body.cart .drw{transform:none}
  .hdi{flex-wrap:wrap;gap:10px;padding:10px 14px}.sr{order:5;flex:1 1 100%;max-width:none}.logo{margin-right:auto}.logo small{display:none}.cartb small{display:none}
  .gr{grid-template-columns:repeat(2,1fr);gap:14px}
 }
-@media(max-width:560px){.bf{grid-template-columns:1fr 1fr}.bf>div{padding:12px;gap:10px;flex-direction:column;align-items:flex-start}.bf .i{width:38px;height:38px;font-size:1.2rem}.fti{grid-template-columns:1fr}.sheet{border-radius:20px 20px 0 0;align-self:flex-end}.bk{padding:0;align-items:flex-end}.sheet.det{max-height:94vh}}
+@media(max-width:560px){.bf{grid-template-columns:1fr 1fr}.bf>div{padding:12px;gap:10px;flex-direction:column;align-items:flex-start}.bf .i{width:38px;height:38px;font-size:1.2rem}.fti{grid-template-columns:1fr}.ctab{padding:22px}.sheet{border-radius:20px 20px 0 0;align-self:flex-end}.bk{padding:0;align-items:flex-end}.sheet.det{max-height:94vh}}
 
 main,.shell>*{min-width:0}
-html,body{overflow-x:hidden}
+
+/* ações do cabeçalho */
+.act{display:flex;align-items:center;gap:6px;flex:none}
+.lk{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:10px 10px;font-size:13px;font-weight:600;color:#222;border-radius:8px}
+.lk:hover{background:var(--soft)}.lk svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.so-m{display:none}
+/* barra de etapas */
+.stp{display:flex;gap:6px;margin:12px 0 6px}.stp i{flex:1;height:4px;border-radius:3px;background:var(--line)}.stp i.on{background:#111}
+.stl{display:block;margin-bottom:6px;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase}
+.pgt{margin:4px 0 6px;font-size:1.7rem}
+/* anúncios (carrossel) */
+.hero2{position:relative;border-radius:22px;overflow:hidden;background:#111}
+.hs{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;scroll-behavior:smooth}
+.hs::-webkit-scrollbar{display:none}
+.sl2{flex:0 0 100%;scroll-snap-align:start;position:relative;min-height:340px;display:flex;align-items:center;border:0;text-align:left;padding:0;font:inherit;cursor:pointer;overflow:hidden}
+div.sl2{cursor:default}
+.sl2>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sl2 .ov{position:absolute;inset:0;background:linear-gradient(90deg,var(--c) 0%,color-mix(in srgb,var(--c) 55%,transparent) 45%,transparent 80%)}
+.sl2 .tt{position:relative;padding:46px 54px;max-width:640px;display:flex;flex-direction:column;gap:12px}
+.sl2 .h{font-size:clamp(1.9rem,4.4vw,3.4rem);line-height:1.02;font-weight:800;letter-spacing:-.01em;text-transform:uppercase}
+.sl2 .sub{font-size:1.05rem;line-height:1.45;opacity:.92;max-width:460px}
+.sl2 .go2{align-self:flex-start;font-weight:800;letter-spacing:.04em;padding:13px 24px;border-radius:999px;font-size:.84rem;text-transform:uppercase;margin-top:4px}
+.hbt{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;border:0;background:#fffe;font-size:1.5rem;line-height:1;box-shadow:0 2px 10px #0003;z-index:2}
+.hbt.l{left:12px}.hbt.r{right:12px}
+.hdots{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:8px;z-index:2}
+.hdots i{width:8px;height:8px;border-radius:50%;background:#fff8;cursor:pointer}.hdots i.on{background:#fff;width:22px;border-radius:99px}
+/* acompanhar pedido */
+.trf{display:grid;gap:10px;max-width:460px;margin:12px 0}
+.trr{max-width:640px}
+.trh{display:flex;justify-content:space-between;gap:12px;background:#111;color:#fff;border-radius:var(--r);padding:16px 20px;margin:10px 0 16px}
+.trh small{color:#bdbdc4;display:block}.trh b{font-size:1.15rem}
+.tl{position:relative;margin:6px 0 18px}
+.tli{position:relative;display:flex;gap:14px;padding:0 0 22px}
+.tli:not(:last-child):before{content:"";position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--line)}
+.tli.done:not(:last-child):before{background:#111}
+.tli .dot{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);background:#fff;color:#9ca3af;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;font-size:.85rem}
+.tli.done .dot{background:#111;border-color:#111;color:#fff}
+.tli.cur .dot{border-color:#111;color:#111;box-shadow:0 0 0 4px #1111141a}
+.tli:not(.done):not(.cur) b{color:#9ca3af}
+.tli em{display:block;font-style:normal;background:var(--soft);border-radius:10px;padding:8px 12px;margin-top:6px;font-size:.86rem}
+@media(max-width:900px){.so-d{display:none}.so-m{display:inline}.lk{padding:10px 8px}.cartb small{display:none}.sl2 .tt{padding:30px 24px}.sl2{min-height:300px}}
+
+.blk{display:block}
+.tli b{display:block}
+
+@media(max-width:560px){.so-m{display:none}.cartb span{display:none}.cartb{padding:0 13px}.lk{padding:10px}.hdi{gap:8px}}
+
+@media(max-width:560px){.hbt{display:none}}
 </style>
 </head>
 <body>
-<div class="top">💳 Pague no <b>Pix</b> ou dê uma <b>entrada</b> e combine o restante · Atendimento direto com a loja</div>
+<div class="top" id="faixa">CATÁLOGO VIRTUAL · ROZIVALDO STORE</div>
 <header class="hd">
   <div class="hdi">
     <button class="burger" onclick="menu(true)" aria-label="Abrir menu">☰</button>
@@ -225,7 +295,7 @@ html,body{overflow-x:hidden}
       <div><b>ROZIVALDO</b><b style="font-weight:400">STORE</b><small>MODA · LINGERIE · SEX SHOP</small></div>
     </a>
     <div class="sr"><input id="q" type="search" placeholder="O que você procura?" autocomplete="off" oninput="buscar(this.value)"><span>🔎</span></div>
-    <button class="cartb" onclick="abrirCarrinho()" aria-label="Abrir carrinho"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><i id="cn">0</i><small id="ct">R$ 0,00</small></button>
+    <div class="act"><button class="lk" onclick="nav({v:'acompanhar'})" title="Acompanhar meu pedido"><svg viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span class="so-d">Acompanhar pedido</span><span class="so-m">Acompanhar</span></button><button class="cartb" onclick="abrirCarrinho()" aria-label="Abrir carrinho"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><i id="cn">0</i><span>Carrinho</span><small id="ct">R$ 0,00</small></button></div>
   </div>
   <nav class="nv"><div class="nvi" id="nv"></div></nav>
 </header>
@@ -233,14 +303,8 @@ html,body{overflow-x:hidden}
   <aside class="side" id="side"></aside>
   <main id="main"><div class="gr"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></main>
 </div>
-<footer class="ft">
-  <div class="fti">
-    <div><h5>Rozivaldo Store</h5><span>Moda, lingerie e sex shop com marcas selecionadas. Monte seu carrinho, pague no Pix e a gente cuida do resto.</span></div>
-    <div><h5>Navegue</h5><div id="fnav"></div></div>
-    <div><h5>Ajuda</h5><button class="l" onclick="abrirSug()">💡 Pedir um produto</button><span id="fwa"></span></div>
-  </div>
-  <div class="cp">© Rozivaldo Store · Todos os direitos reservados</div>
-</footer>
+<section class="como" id="como"></section>
+<footer class="ft" id="ft"></footer>
 <div class="scrim" onclick="menu(false);fechaCarrinho()"></div>
 <aside class="drw" id="cartdr"></aside>
 <div id="modal"></div>
@@ -250,6 +314,10 @@ html,body{overflow-x:hidden}
 // ===== CONFIGURAÇÕES DA LOJA =====
 // WhatsApp da loja com DDD (ex: "84999998888"). Se preencher, aparece o botão "enviar comprovante no WhatsApp".
 const WHATS_LOJA = "";
+// Opcionais: aparecem no rodapé só se você preencher
+const INSTAGRAM_LOJA = "";   // ex: "rozivaldostore" (sem @)
+const ENDERECO_LOJA = "";    // ex: "Rua das Flores, 123 - Cidade/UF"
+const HORARIO_LOJA = "";     // ex: "Seg a Sáb, das 9h às 18h"
 // Dados do Pix (chave aleatória cadastrada no banco)
 const PIX = { chave: '47ae918d-9526-4b0b-a622-46273a874482', nome: 'ROZIVALDO STORE', cidade: 'BRASIL' };
 
@@ -263,7 +331,7 @@ const CATS = ['Masculino', 'Feminino', 'Lingerie', 'Sexshop'];
 const IC = { Masculino: '👔', Feminino: '👗', Lingerie: '💗', Sexshop: '🔥' };
 const mkId = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
 
-let P = [], SC = [], MC = [], V = { a: '', s: '', m: '', q: '', o: 'novos' }, GAL = { id: '', fotos: [], tam: '' }, CK = { forma: 'pix_total', pct: 50, outro: '' }, tmrBusca = null;
+let P = [], SC = [], MC = [], V = { a: '', s: '', m: '', q: '', o: 'novos', v: '', c: '' }, GAL = { id: '', fotos: [], tam: '' }, CK = { passo: 1, nome: '', tel: '', obs: '', forma: 'pix_total', pct: 50, outro: '' }, tmrBusca = null;
 const mById = id => MC.find(m => m.id == id);
 const logoM = m => m.logo ? `<img src="${esc(m.logo)}" alt="${esc(m.nome)}" loading="lazy">` : `<span>${esc(m.nome.slice(0, 2).toUpperCase())}</span>`;
 
@@ -292,28 +360,34 @@ function toast(msg, acao, fn) {
 function updHeader() { $('#cn').textContent = nItens(); $('#cn').hidden = !nItens(); $('#ct').textContent = R(total()); }
 
 /* ---------- carregamento ---------- */
+let AN = [], CFG = {}, HERO_T = null;
+const cfg = (k, d = '') => (CFG[k] != null && CFG[k] !== '' ? CFG[k] : d);
+const whats = () => cfg('whatsapp', WHATS_LOJA);
+const hojeISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 async function init() {
-  const [r, s, m] = await Promise.all([db.from('produtos').select('*').eq('vitrine', true).order('nome'), db.from('subcategorias').select('*').order('nome'), db.from('marcas').select('*').order('nome')]);
+  const [r, s, m, a, c] = await Promise.all([db.from('produtos').select('*').eq('vitrine', true).order('nome'), db.from('subcategorias').select('*').order('nome'), db.from('marcas').select('*').order('nome'), db.from('anuncios').select('*').order('ordem'), db.from('configuracoes').select('*')]);
   if (r.error) { $('#main').innerHTML = '<div class="vz">Não foi possível carregar o catálogo agora. Tente novamente em instantes.</div>'; return; }
-  P = r.data || []; SC = s.data || []; MC = m.data || [];
+  P = r.data || []; SC = s.data || []; MC = m.data || []; AN = a.data || []; CFG = Object.fromEntries((c.data || []).map(x => [x.chave, x.valor]));
   for (const k of Object.keys(cart)) if (!prodDe(k)) delete cart[k];
   salvaCart(); lerHash(); render();
 }
-function lerHash() { const p = new URLSearchParams(location.hash.slice(1)); V = { a: p.get('a') || '', s: p.get('s') || '', m: p.get('m') || '', q: p.get('q') || '', o: p.get('o') || 'novos' }; const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q; }
+function lerHash() { const p = new URLSearchParams(location.hash.slice(1)); V = { a: p.get('a') || '', s: p.get('s') || '', m: p.get('m') || '', q: p.get('q') || '', o: p.get('o') || 'novos', v: p.get('v') || '', c: p.get('c') || '' }; const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q; }
 function nav(o, sub) {
   V = { ...V, ...o };
-  if (o && 'a' in o && !('s' in o)) V.s = '';
-  const p = new URLSearchParams(); for (const k of ['a', 's', 'm', 'q']) if (V[k]) p.set(k, V[k]); if (V.o != 'novos') p.set('o', V.o);
+  if (('a' in o || 'm' in o || 'q' in o || 's' in o) && !('v' in o)) { V.v = ''; V.c = ''; }
+  if ('a' in o && !('s' in o)) V.s = '';
+  if (o.v) { V.a = ''; V.s = ''; V.m = ''; V.q = ''; }
+  const p = new URLSearchParams(); for (const k of ['a', 's', 'm', 'q', 'v', 'c']) if (V[k]) p.set(k, V[k]); if (V.o != 'novos') p.set('o', V.o);
   const h = p.toString(); history[sub ? 'replaceState' : 'pushState'](null, '', location.pathname + location.search + (h ? '#' + h : ''));
-  menu(false); render(); if (!sub) window.scrollTo({ top: 0, behavior: 'smooth' }); const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q;
+  menu(false); fechaCarrinho(); render(); if (!sub) window.scrollTo({ top: 0, behavior: 'smooth' }); const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q;
 }
 window.addEventListener('popstate', () => { lerHash(); render(); });
-function buscar(v) { clearTimeout(tmrBusca); tmrBusca = setTimeout(() => { V.q = v.trim(); if (V.q) { V.a = ''; V.s = ''; V.m = ''; } nav({}, true); }, 220); }
+function buscar(v) { clearTimeout(tmrBusca); tmrBusca = setTimeout(() => { V.q = v.trim(); V.v = ''; V.c = ''; if (V.q) { V.a = ''; V.s = ''; V.m = ''; } nav({}, true); }, 220); }
 function irPara(id) { menu(false); if (!isHome()) nav({ a: '', s: '', m: '', q: '' }); setTimeout(() => { const e = document.getElementById(id); if (e) e.scrollIntoView({ behavior: 'smooth' }); }, 120); }
 function menu(on) { document.body.classList.toggle('menu', !!on); if (on) document.body.classList.remove('cart'); }
 
 /* ---------- utilidades de listagem ---------- */
-const isHome = () => !V.a && !V.s && !V.m && !V.q;
+const isHome = () => !V.v && !V.a && !V.s && !V.m && !V.q;
 const dia = p => String(p.criado_em || '').slice(0, 10);
 function baseDia() { const c = {}; P.forEach(p => { const d = dia(p); if (d) c[d] = (c[d] || 0) + 1; }); const t = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return t && t[1] > P.length / 2 && P.length > 4 ? t[0] : ''; }
 const novo = (p, bd) => p.criado_em && Date.now() - new Date(p.criado_em) < 14 * 864e5 && dia(p) != bd;
@@ -353,14 +427,113 @@ function sideHtml() {
     ${V.a == k && subs.length ? `<div class="ss">${subs.map(s => `<button class="sl ${V.s == s ? 'on' : ''}" data-s="${esc(s)}" onclick="nav({s:this.dataset.s})"><span>${esc(s)}</span><small>${P.filter(p => p.categoria == k && p.subcategoria == s).length}</small></button>`).join('')}</div>` : ''}`; }).join('')}
   ${mv.length ? `<h4>Marcas</h4>${mv.map(({ m, n }) => `<button class="sl ${V.m == m.id ? 'on' : ''}" onclick="nav({m:'${m.id}',q:''})"><span class="sb"><span class="lg">${logoM(m)}</span>${esc(m.nome)}</span><small>${n}</small></button>`).join('')}` : ''}
   <h4>Ajuda</h4>
+  <button class="sl ${V.v == 'acompanhar' ? 'on' : ''}" onclick="nav({v:'acompanhar'})"><span>📦 Acompanhar pedido</span></button>
   <button class="sl" onclick="abrirSug()"><span>💡 Pedir um produto</span></button>
   <button class="sl" onclick="menu(false);abrirCarrinho()"><span>🛒 Meu carrinho</span><small>${nItens()}</small></button>`;
 }
 function navTopo() {
   const as = areasComProd();
   $('#nv').innerHTML = `<button class="${isHome() ? 'on' : ''}" onclick="nav({a:'',s:'',m:'',q:''})">Início</button>${as.map(k => `<button class="${V.a == k ? 'on' : ''}" onclick="nav({a:'${k}',s:'',m:''})">${k}</button>`).join('')}<button onclick="irPara('marcas')">Marcas</button><span class="sp"></span><button onclick="abrirSug()">💡 Pedir um produto</button>`;
-  $('#fnav').innerHTML = `<a href="#" onclick="nav({a:'',s:'',m:'',q:''});return false">Início</a>` + as.map(k => `<a href="#" onclick="nav({a:'${k}',s:'',m:''});return false">${k}</a>`).join('');
-  $('#fwa').innerHTML = WHATS_LOJA ? `<a target="_blank" href="https://wa.me/${WHATS_LOJA.replace(/\D/g, '').length <= 11 ? '55' + WHATS_LOJA.replace(/\D/g, '') : WHATS_LOJA.replace(/\D/g, '')}">📲 Falar no WhatsApp</a>` : '';
+}
+
+/* ---------- anúncios (carrossel editável) ---------- */
+const temLink = a => a.link_tipo && a.link_tipo != 'nenhum';
+function heroPadrao() {
+  const nov = ordenar(P, 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4);
+  return `<section class="hero"><div class="tx"><span class="tg" style="position:static;background:none;padding:0;color:#bdbdc4;letter-spacing:.22em">ROZIVALDO STORE</span><h1>Moda, lingerie<br>e sex shop</h1><p>Marcas selecionadas, pagamento no Pix e atendimento direto com a loja. Escolha, monte seu carrinho e finalize em poucos toques.</p><button class="go" onclick="irPara('novidades')">VER NOVIDADES</button></div>
+    <div class="col">${[0, 1, 2, 3].map(i => fotos[i] ? `<div style="background-image:url('${fotos[i].foto}')"></div>` : '<div class="ph0">🛍️</div>').join('')}</div></section>`;
+}
+function heroHtml() {
+  const h = hojeISO(), l = AN.filter(a => a.ativo !== false && (!a.inicio || a.inicio <= h) && (!a.fim || a.fim >= h)).sort((a, b) => a.ordem - b.ordem);
+  if (!l.length) return heroPadrao();
+  const slide = a => { const k = temLink(a), bg = esc(a.cor_fundo || '#111111'), tx = esc(a.cor_texto || '#ffffff'), tag = k ? 'button' : 'div';
+    return `<${tag} class="sl2" style="background:${bg};color:${tx};--c:${bg}" ${k ? `onclick="anuncioGo('${a.id}')" aria-label="${esc(a.titulo)}"` : ''}>${a.imagem ? `<img src="${a.imagem}" alt="${esc(a.titulo)}"><span class="ov"></span>` : ''}<span class="tt"><span class="h">${esc(a.titulo)}</span>${a.subtitulo ? `<span class="sub">${esc(a.subtitulo)}</span>` : ''}${k ? `<span class="go2" style="background:${tx};color:${bg}">${esc(a.texto_botao || 'Ver agora')} →</span>` : ''}</span></${tag}>`; };
+  return `<section class="hero2" id="hero"><div class="hs" id="hs" onscroll="heroScroll()">${l.map(slide).join('')}</div>${l.length > 1 ? `<button class="hbt l" onclick="heroTo(heroIdx()-1)" aria-label="Anúncio anterior">‹</button><button class="hbt r" onclick="heroTo(heroIdx()+1)" aria-label="Próximo anúncio">›</button><div class="hdots" id="hdots">${l.map((_, i) => `<i class="${i == 0 ? 'on' : ''}" onclick="heroTo(${i})"></i>`).join('')}</div>` : ''}</section>`;
+}
+const heroIdx = () => { const s = $('#hs'); return s ? Math.round(s.scrollLeft / (s.clientWidth || 1)) : 0; };
+function heroTo(i) { const s = $('#hs'); if (!s) return; const n = s.children.length; i = (i + n) % n; s.scrollTo({ left: i * s.clientWidth, behavior: 'smooth' }); }
+function heroScroll() { const d = document.querySelectorAll('#hdots i'), i = heroIdx(); d.forEach((x, k) => x.classList.toggle('on', k == i)); }
+function heroInit() {
+  clearInterval(HERO_T); const s = $('#hs'); if (!s || s.children.length < 2) return;
+  HERO_T = setInterval(() => { if (!document.hidden && $('#hs')) heroTo(heroIdx() + 1); }, 6500);
+  s.addEventListener('pointerdown', () => clearInterval(HERO_T), { once: true });
+}
+function anuncioGo(id) {
+  const a = AN.find(x => x.id == id); if (!a) return; const v = a.link_valor || '';
+  if (a.link_tipo == 'marca') nav({ m: v, a: '', s: '', q: '' });
+  else if (a.link_tipo == 'categoria') nav({ a: v, s: '', m: '', q: '' });
+  else if (a.link_tipo == 'subcategoria') { const [ar, sb] = v.split('|'); nav({ a: ar, s: sb || '', m: '', q: '' }); }
+  else if (a.link_tipo == 'produto') detalhe(v);
+  else if (a.link_tipo == 'busca') nav({ q: v, a: '', s: '', m: '' });
+  else if (a.link_tipo == 'url' && /^https?:\/\//i.test(v)) window.open(v, '_blank', 'noopener');
+}
+
+/* ---------- acompanhar pedido ---------- */
+let TR = { codigo: '', tel: '', res: null, erro: '', load: false, auto: false };
+const fmtDH = d => { const x = new Date(d); return x.toLocaleDateString('pt-BR') + ' ' + x.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
+function trackHtml() {
+  const r = TR.res;
+  return `<div class="bc"><button onclick="nav({a:'',s:'',m:'',q:''})">Início</button> › Acompanhar pedido</div>
+  <h1 class="pgt">Acompanhar pedido</h1><p class="mut" style="margin:0">Informe o código do pedido e o WhatsApp usado na compra.</p>
+  <div class="stp" style="max-width:460px"><i class="on"></i><i class="${r ? 'on' : ''}"></i></div>
+  <form id="trf" class="trf" onsubmit="trackBusca(event)">
+    <input class="inp" name="codigo" maxlength="20" placeholder="Código do pedido (ex: RSA1B2C3D4)" value="${esc(TR.codigo)}" autocapitalize="characters" autocomplete="off" required>
+    <input class="inp" name="tel" type="tel" maxlength="20" placeholder="Seu WhatsApp com DDD" value="${esc(TR.tel)}" required>
+    <button class="btn w" ${TR.load ? 'disabled' : ''}>${TR.load ? 'Consultando…' : 'Ver andamento'}</button></form>
+  ${TR.erro ? `<div class="res" style="max-width:460px;color:#b91c1c">${esc(TR.erro)}</div>` : ''}${r ? trackRes(r) : ''}`;
+}
+function trackRes(r) {
+  const et = r.etapas || [], pos = r.etapa_pos || 1, hi = r.historico || [];
+  const ult = (e, f) => [...hi].reverse().find(x => x.etapa_id == e.id && (!f || f(x)));
+  const quando = (e, i) => { const h = ult(e); return h ? fmtDH(h.em) : i == 0 ? fmtDH(r.criado_em) : ''; };
+  const pg = r.pagamento == 'pix_total' ? `Pix · valor total (${R(r.valor_pix)})` : r.pagamento == 'pix_entrada' ? `Pix · entrada de ${R(r.valor_pix)} (restante ${R(r.total - r.valor_pix)})` : 'Pagamento a combinar com a loja';
+  const wa = waLoja();
+  return `<div class="trr"><div class="trh"><div><small>Pedido</small><b>${esc(r.codigo)}</b></div><div style="text-align:right"><small>Olá${r.nome ? ', ' + esc(r.nome) : ''}! Etapa atual</small><b>${esc((et[pos - 1] || {}).nome || '')}</b></div></div>
+  <div class="tl">${et.map((e, i) => { const n = i + 1, fim = n == pos && pos == et.length, st = n < pos || fim ? 'done' : n == pos ? 'cur' : '', q = n <= pos ? quando(e, i) : '', nt = n <= pos ? (ult(e, x => x.nota) || {}).nota : '';
+    return `<div class="tli ${st}"><span class="dot">${n < pos || fim ? '✓' : n == pos ? '●' : n}</span><div><b>${esc(e.nome)}</b>${e.descricao ? `<small class="blk">${esc(e.descricao)}</small>` : ''}${q ? `<small class="blk">${q}</small>` : ''}${nt ? `<em>💬 ${esc(nt)}</em>` : ''}</div></div>`; }).join('')}</div>
+  <div class="res"><b>Seu pedido</b>${(r.itens || []).map(i => `<div class="tr"><span>${i.qtd}× ${esc(i.nome)}</span><b>${R(i.qtd * i.preco)}</b></div>`).join('')}<div class="tr t"><span>Total</span><span>${R(r.total)}</span></div><small class="blk">${pg}</small></div>
+  ${wa ? `<a class="btn w" style="margin-top:10px" target="_blank" rel="noopener" href="${wa}?text=${encodeURIComponent('Olá! Sobre o meu pedido ' + r.codigo)}">💬 Falar com a loja no WhatsApp</a>` : ''}<button class="btn alt w" style="margin-top:8px" onclick="trackBusca()">↻ Atualizar</button></div>`;
+}
+async function trackBusca(e) {
+  if (e) { e.preventDefault(); const f = e.target; TR.codigo = f.codigo.value.trim().toUpperCase(); TR.tel = f.tel.value.trim(); }
+  if (TR.codigo.length < 6 || TR.tel.replace(/\D/g, '').length < 8) { TR.erro = 'Informe o código do pedido e o seu WhatsApp com DDD.'; return render(); }
+  TR.load = true; TR.erro = ''; render();
+  const { data, error } = await db.rpc('acompanhar_pedido', { p_codigo: TR.codigo, p_telefone: TR.tel });
+  TR.load = false;
+  if (error) { TR.res = null; TR.erro = 'Não foi possível consultar agora. Tente de novo em instantes.'; }
+  else if (!data) { TR.res = null; TR.erro = 'Não encontramos esse pedido. Confira o código e o WhatsApp usado na compra.'; }
+  else { TR.res = data; try { localStorage.setItem('rs_ultimo', JSON.stringify({ c: TR.codigo, t: TR.tel })); } catch (x) {} }
+  render();
+}
+function trackAuto() {
+  if (TR.auto) return; TR.auto = true;
+  let u = {}; try { u = JSON.parse(localStorage.getItem('rs_ultimo') || '{}'); } catch (x) {}
+  if (V.c) TR.codigo = V.c.toUpperCase(); else if (!TR.codigo && u.c) TR.codigo = u.c;
+  if (!TR.tel && u.t && (!V.c || u.c == TR.codigo)) TR.tel = u.t;
+  if (TR.codigo && TR.tel) trackBusca(); else render();
+}
+
+/* ---------- como comprar + rodapé ---------- */
+const waLoja = () => { const d = whats().replace(/\D/g, ''); return d ? `https://wa.me/${d.length <= 11 ? '55' + d : d}` : ''; };
+function rodape() {
+  const as = areasComProd(), mv = marcasDe(P), wa = waLoja(), ig = cfg('instagram', INSTAGRAM_LOJA).replace(/[@\s]/g, ''), hor = cfg('horario', HORARIO_LOJA), end = cfg('endereco', ENDERECO_LOJA);
+  $('#como').innerHTML = `<div class="comoi"><h2>Como comprar</h2><div class="steps3">
+    <div><span class="n">1</span><b>Escolha suas peças</b><small>Navegue por marca ou categoria e veja fotos, tamanhos e preços.</small></div>
+    <div><span class="n">2</span><b>Monte o carrinho</b><small>Adicione tudo o que quiser e revise o pedido antes de finalizar.</small></div>
+    <div><span class="n">3</span><b>Pague no Pix</b><small>Valor total ou entrada: o código Pix aparece na hora para copiar e colar.</small></div></div>
+    <div class="ctab"><div><b>Não encontrou o que procura?</b><span>Conte pra gente o que você quer e vamos tentar trazer para a loja.</span></div><button class="btn" onclick="abrirSug()">💡 Pedir um produto</button></div></div>`;
+  $('#ft').innerHTML = `<div class="fti">
+    <div><div class="fl"><svg viewBox="0 0 64 64"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#fff" stroke-width="3"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#fff" stroke-width="3"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#fff" font-family="sans-serif">R</text></svg><div><b>ROZIVALDO STORE</b><small>MODA · LINGERIE · SEX SHOP</small></div></div>
+      <p>Moda, lingerie e sex shop com marcas selecionadas. Monte seu carrinho, pague no Pix e a gente cuida do resto.</p>
+      <div class="soc">${wa ? `<a target="_blank" rel="noopener" href="${wa}">💬 WhatsApp</a>` : ''}${ig ? `<a target="_blank" rel="noopener" href="https://instagram.com/${ig}">📸 Instagram</a>` : ''}<a href="#" onclick="abrirSug();return false">💡 Pedir produto</a></div></div>
+    <div><h5>Navegue</h5><a href="#" onclick="nav({a:'',s:'',m:'',q:''});return false">Início</a><a href="#" onclick="irPara('novidades');return false">Novidades</a>${as.map(k => `<a href="#" onclick="nav({a:'${k}',s:'',m:''});return false">${IC[k]} ${k} <span style="color:#6f6f77">(${P.filter(p => p.categoria == k).length})</span></a>`).join('')}</div>
+    <div><h5>Nossas marcas</h5>${mv.length ? `<div class="fmarcas">${mv.slice(0, 9).map(({ m }) => `<button title="${esc(m.nome)}" onclick="nav({m:'${m.id}',q:''})">${logoM(m)}</button>`).join('')}</div>` : '<p>Em breve.</p>'}</div>
+    <div><h5>Atendimento e pagamento</h5><div class="pays"><span>⚡ Pix</span><span>💸 Entrada via Pix</span></div>
+      <p class="fi" style="margin:0 0 8px">Pague o valor total ou dê uma entrada e combine o restante com a loja.</p>
+      ${hor ? `<div class="fi"><span>🕒</span><span>${esc(hor)}</span></div>` : ''}${end ? `<div class="fi"><span>📍</span><span>${esc(end)}</span></div>` : ''}
+      ${wa ? `<a href="${wa}" target="_blank" rel="noopener">📲 Falar com a loja no WhatsApp</a>` : '<div class="fi"><span>💬</span><span>Dúvidas? Peça o produto ou faça seu pedido e a loja te chama no WhatsApp.</span></div>'}</div>
+  </div>
+  <div class="cp"><span>© ${new Date().getFullYear()} Rozivaldo Store · Todos os direitos reservados</span><button onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ Voltar ao topo</button></div>`;
 }
 
 /* ---------- páginas ---------- */
@@ -368,8 +541,7 @@ function homeHtml() {
   const bd = baseDia(), nov = ordenar(P, 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4), as = areasComProd(), mv = marcasDe(P);
   const nomes = mv.slice(0, 3).map(x => x.m.nome).join(', ');
   const cats = []; as.forEach(k => { const ss = subsDe(k); if (ss.length) ss.forEach(s => cats.push({ t: s, k, s, img: (P.find(p => p.categoria == k && p.subcategoria == s && p.foto) || {}).foto })); else cats.push({ t: k, k, img: (P.find(p => p.categoria == k && p.foto) || {}).foto }); });
-  return `<section class="hero"><div class="tx"><span class="tg" style="position:static;background:none;padding:0;color:#bdbdc4;letter-spacing:.22em">ROZIVALDO STORE</span><h1>Moda, lingerie<br>e sex shop</h1><p>Marcas selecionadas, pagamento no Pix e atendimento direto com a loja. Escolha, monte seu carrinho e finalize em poucos toques.</p><button class="go" onclick="irPara('novidades')">VER NOVIDADES</button></div>
-    <div class="col">${[0, 1, 2, 3].map(i => fotos[i] ? `<div style="background-image:url('${fotos[i].foto}')"></div>` : '<div class="ph0">🛍️</div>').join('')}</div></section>
+  return `${heroHtml()}
   <section class="bf"><div><span class="i">⚡</span><span><b>Pague no Pix</b><small>Gere o código e pague na hora</small></span></div><div><span class="i">💸</span><span><b>Entrada via Pix</b><small>Pague uma parte e combine o restante</small></span></div><div><span class="i">🏷️</span><span><b>Marcas selecionadas</b><small>${esc(nomes || 'Moda e lingerie')} e mais</small></span></div><div><span class="i">💬</span><span><b>Atendimento direto</b><small>Tire dúvidas com a loja</small></span></div></section>
   ${mv.length ? `<div class="sh" id="marcas"><h2>Navegue por marca</h2></div><div class="brs">${mv.map(({ m }) => `<button class="bt" title="${esc(m.nome)}" onclick="nav({m:'${m.id}',q:''})">${logoM(m)}</button>`).join('')}</div>` : ''}
   ${cats.length ? `<div class="sh"><h2>Escolha por categoria</h2></div><div class="ccs">${cats.slice(0, 14).map(c => `<button class="cc" data-s="${esc(c.s || '')}" onclick="nav({a:'${c.k}',s:this.dataset.s,m:''})"><div class="cp" ${c.img ? `style="background-image:url('${c.img}')"` : ''}>${c.img ? '' : IC[c.k]}</div><b>${esc(c.t)}</b>${c.s ? `<small>${c.k}</small>` : ''}</button>`).join('')}</div>` : ''}
@@ -392,7 +564,11 @@ function listHtml() {
 }
 function render() {
   if (V.a && !areasComProd().includes(V.a)) V.a = '';
-  $('#side').innerHTML = sideHtml(); navTopo(); $('#main').innerHTML = isHome() ? homeHtml() : listHtml(); updHeader(); cartRender();
+  const on = cfg('faixa_ativa', 'true') != 'false', tx = cfg('faixa_texto', 'CATÁLOGO VIRTUAL · ROZIVALDO STORE'), fx = $('#faixa'); fx.hidden = !on || !tx; fx.textContent = tx;
+  $('#side').innerHTML = sideHtml(); navTopo(); rodape();
+  $('#main').innerHTML = V.v == 'acompanhar' ? trackHtml() : isHome() ? homeHtml() : listHtml(); updHeader(); cartRender();
+  if (isHome()) heroInit(); else clearInterval(HERO_T);
+  if (V.v == 'acompanhar') trackAuto();
 }
 
 /* ---------- carrinho (gaveta) ---------- */
@@ -462,24 +638,36 @@ function ckEntrada() {
   if (v > t - 0.01) v = Math.floor((t - 0.01) * 100) / 100;
   return v >= 1 ? Math.round(v * 100) / 100 : 0;
 }
+const stepBar = n => `<div class="stp">${[1, 2, 3].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</div><small class="stl">${['Seus dados', 'Pagamento', 'Pix'][n - 1]} · passo ${n} de 3</small>`;
+const ckResumo = () => `<div class="res">${linhas().map(x => `<div class="tr"><span>${x.q}× ${rotulo(x)}</span><b>${R(x.q * x.p.preco)}</b></div>`).join('')}<div class="tr t"><span>Total</span><span>${R(total())}</span></div></div>`;
 function ckAbrir() {
   if (!linhas().length) return;
-  fechaCarrinho(); CK = { forma: 'pix_total', pct: 50, outro: '' }; const t = total();
-  $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet ck"><div class="shh"><h2>Finalizar pedido</h2><button class="x" onclick="fecha()" aria-label="Fechar">✕</button></div>
-  <div class="res">${linhas().map(x => `<div class="tr"><span>${x.q}× ${rotulo(x)}</span><b>${R(x.q * x.p.preco)}</b></div>`).join('')}<div class="tr t"><span>Total</span><span>${R(t)}</span></div></div>
-  <form id="ckf" onsubmit="ckEnviar(event)">
-  <h3>1 · Seus dados</h3>
-  <input class="inp" name="nome" maxlength="80" placeholder="Seu nome completo" required autocomplete="name">
-  <input class="inp" name="telefone" type="tel" maxlength="20" placeholder="Seu WhatsApp com DDD" required autocomplete="tel">
-  <textarea class="inp" name="obs" rows="2" maxlength="300" placeholder="Endereço de entrega ou observações (opcional)"></textarea>
-  <h3>2 · Como você quer pagar?</h3>
-  <label class="opt on"><input type="radio" name="forma" value="pix_total" checked onchange="ckForma(this.value)"><span><b>Pix · valor total</b><small>Pague tudo agora e garanta suas peças</small></span><b>${R(t)}</b></label>
+  fechaCarrinho(); CK = { passo: 1, nome: '', tel: '', obs: '', forma: 'pix_total', pct: 50, outro: '' }; ckTela();
+}
+function ckTela() {
+  const t = total();
+  const corpo = CK.passo == 1 ? `${stepBar(1)}${ckResumo()}
+  <form id="ckd" onsubmit="ckPasso2(event)"><h3>Seus dados</h3>
+  <input class="inp" name="nome" maxlength="80" placeholder="Seu nome completo" required autocomplete="name" value="${esc(CK.nome)}">
+  <input class="inp" name="telefone" type="tel" maxlength="20" placeholder="Seu WhatsApp com DDD" required autocomplete="tel" value="${esc(CK.tel)}">
+  <textarea class="inp" name="obs" rows="2" maxlength="300" placeholder="Endereço de entrega ou observações (opcional)">${esc(CK.obs)}</textarea>
+  <button class="btn w" style="margin-top:10px">Continuar</button></form>`
+  : `${stepBar(2)}${ckResumo()}
+  <form id="ckf" onsubmit="ckEnviar(event)"><h3>Como você quer pagar?</h3>
+  <label class="opt"><input type="radio" name="forma" value="pix_total" onchange="ckForma(this.value)"><span><b>Pix · valor total</b><small>Pague tudo agora e garanta suas peças</small></span><b>${R(t)}</b></label>
   <label class="opt"><input type="radio" name="forma" value="pix_entrada" onchange="ckForma(this.value)"><span><b>Pix · dar uma entrada</b><small>Pague uma parte agora e combine o restante</small></span><b id="ckev"></b></label>
   <div class="ent" id="ckent" hidden><small>Quanto você quer pagar agora?</small><div class="chs">${[30, 50, 70].map(p => `<button type="button" data-p="${p}" onclick="ckPct(${p})">${p}%</button>`).join('')}</div>
     <input class="inp" id="ckout" inputmode="decimal" placeholder="Ou digite outro valor (R$)" oninput="ckOutro(this.value)"><div id="ckinfo" style="margin-top:6px;font-size:.88rem"></div></div>
   <label class="opt"><input type="radio" name="forma" value="combinar" onchange="ckForma(this.value)"><span><b>Combinar com a loja</b><small>Outras formas de pagamento pelo WhatsApp</small></span></label>
-  <button class="btn w" id="cksub" style="margin-top:14px">Gerar Pix</button><small class="blk" style="display:block;text-align:center;margin-top:8px">Seus dados são usados só para este pedido.</small></form></div></div>`;
-  ckForma('pix_total');
+  <button class="btn w" id="cksub" style="margin-top:14px">Gerar Pix</button><button type="button" class="btn alt w" style="margin-top:8px" onclick="CK.passo=1;ckTela()">← Voltar</button><small class="blk" style="display:block;text-align:center;margin-top:8px">Seus dados são usados só para este pedido.</small></form>`;
+  $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet ck"><div class="shh"><h2>Finalizar pedido</h2><button class="x" onclick="fecha()" aria-label="Fechar">✕</button></div>${corpo}</div></div>`;
+  if (CK.passo == 2) { const r = document.querySelector('#ckf [name=forma][value="' + CK.forma + '"]'); if (r) r.checked = true; ckForma(CK.forma); }
+}
+function ckPasso2(e) {
+  e.preventDefault(); const f = e.target;
+  if (f.nome.value.trim().length < 2) return alert('Informe o seu nome.');
+  if (f.telefone.value.replace(/\D/g, '').length < 10) return alert('Informe seu WhatsApp com DDD.');
+  CK.nome = f.nome.value.trim(); CK.tel = f.telefone.value.trim(); CK.obs = f.obs.value.trim(); CK.passo = 2; ckTela();
 }
 function ckForma(v) {
   CK.forma = v; document.querySelectorAll('#ckf .opt').forEach(o => o.classList.toggle('on', o.querySelector('input').value == v)); $('#ckent').hidden = v != 'pix_entrada'; ckAtualiza();
@@ -495,39 +683,45 @@ function ckAtualiza() {
 }
 async function ckEnviar(e) {
   e.preventDefault();
-  const f = e.target, b = $('#cksub'), t = total(), ent = CK.forma == 'pix_entrada', valor = CK.forma == 'pix_total' ? t : ent ? ckEntrada() : 0;
+  const b = $('#cksub'), t = total(), ent = CK.forma == 'pix_entrada', valor = CK.forma == 'pix_total' ? t : ent ? ckEntrada() : 0;
   if (!linhas().length) return;
-  if (f.telefone.value.replace(/\D/g, '').length < 10) return alert('Informe seu WhatsApp com DDD.');
   if (ent && !valor) return alert('Informe o valor da entrada.');
   b.disabled = true; const txt = b.textContent; b.textContent = 'Enviando…';
-  const txid = 'RS' + mkId(8);
   const itens = linhas().map(x => ({ id: x.p.id, nome: x.p.nome + (x.tam ? ' · ' + x.tam : x.p.tam_consulta ? ' · tam. a confirmar' : ''), categoria: x.p.categoria, qtd: x.q, preco: Number(x.p.preco), tam: x.tam || null }));
-  const pedido = { nome: f.nome.value.trim(), telefone: f.telefone.value.trim(), itens, total: t, status: 'novo', pagamento: CK.forma, valor_pix: valor || null, pix_txid: valor ? txid : null, obs: f.obs.value.trim() || null };
-  const { error } = await db.from('pedidos').insert(pedido);
-  if (error) { b.disabled = false; b.textContent = txt; return alert('Não foi possível enviar o pedido agora. Tente de novo em instantes.'); }
-  const resumo = linhas(); cart = {}; salvaCart(); updHeader(); cartRender(); render();
-  if (CK.forma == 'combinar') return ckOk(pedido, txid);
-  ckPix(pedido, txid, resumo);
+  let codigo = 'RS' + mkId(8), r;
+  for (let i = 0; i < 3; i++) {
+    r = await db.from('pedidos').insert({ nome: CK.nome, telefone: CK.tel, itens, total: t, status: 'novo', pagamento: CK.forma, valor_pix: valor || null, pix_txid: valor ? codigo : null, codigo, obs: CK.obs || null });
+    if (r.error && /duplicate|unique/i.test(r.error.message || '')) { codigo = 'RS' + mkId(8); continue; }
+    break;
+  }
+  if (r.error) { b.disabled = false; b.textContent = txt; return alert('Não foi possível enviar o pedido agora. Tente de novo em instantes.'); }
+  try { localStorage.setItem('rs_ultimo', JSON.stringify({ c: codigo, t: CK.tel })); } catch (x) {}
+  const ped = { nome: CK.nome, telefone: CK.tel, total: t, pagamento: CK.forma, valor_pix: valor || null };
+  cart = {}; salvaCart(); updHeader(); cartRender(); render(); TR = { codigo: '', tel: '', res: null, erro: '', load: false, auto: false };
+  if (CK.forma == 'combinar') return ckOk(ped, codigo);
+  ckPix(ped, codigo);
 }
-function zapLoja(txt) { const d = WHATS_LOJA.replace(/\D/g, ''); return d ? `https://wa.me/${d.length <= 11 ? '55' + d : d}?text=${encodeURIComponent(txt)}` : ''; }
-function ckOk(p, txid) {
-  const wa = zapLoja(`Olá! Fiz o pedido ${txid} no catálogo (${R(p.total)}) e quero combinar o pagamento. Meu nome: ${p.nome}`);
-  $('#modal').innerHTML = `<div class="bk"><div class="sheet pixb"><h2>Pedido enviado! 💜</h2><p class="mut">Recebemos seu pedido <b>${txid}</b> de ${R(p.total)}. Vamos te chamar no WhatsApp para combinar o pagamento e a entrega.</p>${wa ? `<a class="btn w" target="_blank" href="${wa}">Falar com a loja no WhatsApp</a>` : ''}<button class="btn alt w" style="margin-top:8px" onclick="fecha()">Voltar ao catálogo</button></div></div>`;
+function zapLoja(txt) { const d = whats().replace(/\D/g, ''); return d ? `https://wa.me/${d.length <= 11 ? '55' + d : d}?text=${encodeURIComponent(txt)}` : ''; }
+const btnAcomp = c => `<button class="btn alt w" style="margin-top:8px" onclick="fecha();nav({v:'acompanhar',c:'${c}'})">📦 Acompanhar este pedido</button>`;
+function ckOk(p, codigo) {
+  const wa = zapLoja(`Olá! Fiz o pedido ${codigo} no catálogo (${R(p.total)}) e quero combinar o pagamento. Meu nome: ${p.nome}`);
+  $('#modal').innerHTML = `<div class="bk"><div class="sheet pixb">${stepBar(3)}<h2>Pedido enviado! 💜</h2><p class="mut">Recebemos seu pedido de ${R(p.total)}. Vamos te chamar no WhatsApp para combinar o pagamento e a entrega.</p><div class="res"><small>Guarde o código do seu pedido</small><div style="font-size:1.5rem;font-weight:800;letter-spacing:.06em">${codigo}</div></div>${wa ? `<a class="btn w" style="margin-top:10px" target="_blank" href="${wa}">Falar com a loja no WhatsApp</a>` : ''}${btnAcomp(codigo)}<button class="btn alt w" style="margin-top:8px" onclick="fecha()">Voltar ao catálogo</button></div></div>`;
 }
-function ckPix(p, txid) {
-  const cod = pixPayload(p.valor_pix, txid), qr = qrSvg(cod), restante = Math.round((p.total - p.valor_pix) * 100) / 100;
-  const wa = zapLoja(`Olá! Fiz o pedido ${txid} e paguei ${R(p.valor_pix)} no Pix. Segue o comprovante:`);
+function ckPix(p, codigo) {
+  const cod = pixPayload(p.valor_pix, codigo), qr = qrSvg(cod), restante = Math.round((p.total - p.valor_pix) * 100) / 100;
+  const wa = zapLoja(`Olá! Fiz o pedido ${codigo} e paguei ${R(p.valor_pix)} no Pix. Segue o comprovante:`);
   window._pix = { cod, chave: PIX.chave };
-  $('#modal').innerHTML = `<div class="bk"><div class="sheet pixb"><div class="shh"><h2>Pague com Pix</h2><button class="x" onclick="fecha()" aria-label="Fechar">✕</button></div>
-  <small>Pedido <b>${txid}</b> · ${p.pagamento == 'pix_entrada' ? 'Entrada' : 'Valor total'}</small><div class="v">${R(p.valor_pix)}</div>
+  $('#modal').innerHTML = `<div class="bk"><div class="sheet pixb"><div class="shh"><h2>Pague com Pix</h2><button class="x" onclick="fecha()" aria-label="Fechar">✕</button></div>${stepBar(3)}
+  <small>Pedido <b>${codigo}</b> · ${p.pagamento == 'pix_entrada' ? 'Entrada' : 'Valor total'}</small><div class="v">${R(p.valor_pix)}</div>
   ${qr ? `<div class="qr">${qr}</div><small>Aponte a câmera do app do seu banco para o QR Code</small>` : ''}
   <h3 style="text-align:left">Pix Copia e Cola</h3><textarea class="cola" readonly onclick="this.select()">${cod}</textarea>
   <button class="btn w" style="margin-top:8px" onclick="copiar(window._pix.cod,this)">Copiar código Pix</button>
   <ol class="steps"><li>Abra o app do seu banco e vá em <b>Pix</b>.</li><li>Escolha <b>Pix Copia e Cola</b> (ou leia o QR Code).</li><li>Cole o código, confira o valor <b>${R(p.valor_pix)}</b> e o nome <b>${esc(PIX.nome)}</b> e pague.</li></ol>
   <small>Ou use a chave Pix (aleatória):</small><div class="tr" style="gap:8px"><code style="font-size:.74rem;word-break:break-all;text-align:left">${PIX.chave}</code><button class="btn alt" style="padding:8px 12px" onclick="copiar(window._pix.chave,this)">Copiar</button></div>
   ${restante > 0.009 ? `<div class="res" style="margin-top:12px">Restante do pedido: <b>${R(restante)}</b>. Combinamos o pagamento pelo WhatsApp.</div>` : ''}
+  <div class="res" style="margin-top:12px"><small>Guarde o código do seu pedido para acompanhar</small><div style="font-size:1.35rem;font-weight:800;letter-spacing:.06em">${codigo}</div></div>
   <p class="mut" style="font-size:.84rem">Depois de pagar, ${wa ? 'envie o comprovante pelo WhatsApp' : 'a loja confirma o recebimento e te chama no WhatsApp'}. 💜</p>
-  ${wa ? `<a class="btn w" target="_blank" href="${wa}">Enviar comprovante no WhatsApp</a>` : ''}<button class="btn alt w" style="margin-top:8px" onclick="fecha()">Voltar ao catálogo</button></div></div>`;
+  ${wa ? `<a class="btn w" target="_blank" href="${wa}">Enviar comprovante no WhatsApp</a>` : ''}${btnAcomp(codigo)}<button class="btn alt w" style="margin-top:8px" onclick="fecha()">Voltar ao catálogo</button></div></div>`;
 }
 
 /* ---------- pedir um produto (sugestões) ---------- */
