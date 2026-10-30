@@ -283,6 +283,31 @@ div.sl2{cursor:default}
 @media(max-width:560px){.so-m{display:none}.cartb span{display:none}.cartb{padding:0 13px}.lk{padding:10px}.hdi{gap:8px}}
 
 @media(max-width:560px){.hbt{display:none}}
+
+/* maioridade (Sexshop) */
+.idade{max-width:440px;text-align:center}
+.i18{width:78px;height:78px;border-radius:50%;background:#111;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:1.6rem;margin-bottom:12px}
+.chk{display:flex;gap:12px;text-align:left;align-items:flex-start;border:1.5px solid var(--line);border-radius:12px;padding:14px;margin:16px 0;cursor:pointer}
+.chk input{width:20px;height:20px;accent-color:#111;margin-top:2px;flex:none}
+/* descrição do produto */
+.desc{margin-top:4px}
+.dtx{white-space:pre-line;line-height:1.55;font-size:.94rem;color:#333;margin-top:6px}
+.dtx.c{max-height:7.8em;overflow:hidden;-webkit-mask-image:linear-gradient(#000 60%,transparent);mask-image:linear-gradient(#000 60%,transparent)}
+.lnk2{background:none;border:0;padding:6px 0;font-weight:700;text-decoration:underline;font-size:.88rem}
+.dtb{margin-top:16px}
+/* rolagem: janelas e gavetas rolam por dentro, o fundo fica parado */
+body.travado,body.cart,body.menu{overflow:hidden}
+html:has(body.travado),html:has(body.cart),html:has(body.menu){overflow:hidden}
+.sheet,.drw,.side,.drb{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.sheet{max-height:calc(100dvh - 28px)}
+@media(max-width:980px){
+ .sheet.det{overflow-y:auto;max-height:94dvh}
+ .dti{max-height:none;overflow:visible;padding:16px 18px 0}
+ .gal{aspect-ratio:1/1;max-height:56dvh}
+ .gt{width:50px;height:50px}
+ .dtb{position:sticky;bottom:0;background:#fff;margin:14px -18px 0;padding:10px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);z-index:3}
+}
+@media(max-width:560px){.ph{aspect-ratio:4/5}.pn{min-height:2.4em;font-size:.88rem}.sheet.det{max-height:96dvh}}
 </style>
 </head>
 <body>
@@ -333,6 +358,13 @@ const mkId = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => 'AB
 
 let P = [], SC = [], MC = [], V = { a: '', s: '', m: '', q: '', o: 'novos', v: '', c: '' }, GAL = { id: '', fotos: [], tam: '' }, CK = { passo: 1, nome: '', tel: '', obs: '', forma: 'pix_total', pct: 50, outro: '' }, tmrBusca = null;
 const mById = id => MC.find(m => m.id == id);
+/* ---------- confirmação de maioridade (área Sexshop) ---------- */
+const IDADE_DIAS = 7;   // por quantos dias lembrar a confirmação neste aparelho
+function lerIdade() { try { const t = +localStorage.getItem('rs_18') || 0; return !!t && Date.now() - t < IDADE_DIAS * 864e5; } catch (e) { return false; } }
+let IDADE_OK = lerIdade(), PEND = null;
+const ehAdulto = p => p.categoria == 'Sexshop';
+const PV = () => IDADE_OK ? P : P.filter(p => !ehAdulto(p));
+const PH = () => P.filter(p => !ehAdulto(p));
 const logoM = m => m.logo ? `<img src="${esc(m.logo)}" alt="${esc(m.nome)}" loading="lazy">` : `<span>${esc(m.nome.slice(0, 2).toUpperCase())}</span>`;
 
 /* ---------- carrinho (guardado no aparelho) ---------- */
@@ -382,6 +414,7 @@ function nav(o, sub) {
   menu(false); fechaCarrinho(); render(); if (!sub) window.scrollTo({ top: 0, behavior: 'smooth' }); const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q;
 }
 window.addEventListener('popstate', () => { lerHash(); render(); });
+if (window.MutationObserver) { const mo = document.querySelector('#modal'); if (mo) new MutationObserver(() => document.body.classList.toggle('travado', !!mo.firstChild)).observe(mo, { childList: true }); }
 function buscar(v) { clearTimeout(tmrBusca); tmrBusca = setTimeout(() => { V.q = v.trim(); V.v = ''; V.c = ''; if (V.q) { V.a = ''; V.s = ''; V.m = ''; } nav({}, true); }, 220); }
 function irPara(id) { menu(false); if (!isHome()) nav({ a: '', s: '', m: '', q: '' }); setTimeout(() => { const e = document.getElementById(id); if (e) e.scrollIntoView({ behavior: 'smooth' }); }, 120); }
 function menu(on) { document.body.classList.toggle('menu', !!on); if (on) document.body.classList.remove('cart'); }
@@ -398,10 +431,12 @@ function ordenar(l, o) {
   return a;
 }
 const areasComProd = () => CATS.filter(k => P.some(p => p.categoria == k));
+const areasHome = () => areasComProd().filter(k => k != 'Sexshop');
+const alvoAdulto = () => !IDADE_OK && (V.a == 'Sexshop' || (!!V.m && !V.a && P.some(p => p.marca_id == V.m) && P.filter(p => p.marca_id == V.m).every(ehAdulto)));
 const subsDe = a => { const l = P.filter(p => p.categoria == a), ord = SC.filter(s => s.area == a).map(s => s.nome), ex = [...new Set(l.map(p => p.subcategoria).filter(Boolean))].filter(n => !ord.includes(n)); return [...ord, ...ex].filter(n => l.some(p => p.subcategoria == n)); };
 function filtrar() {
   const q = nz(V.q.trim());
-  return P.filter(p => (!V.a || p.categoria == V.a) && (!V.s || (V.s == '__outros' ? !p.subcategoria : p.subcategoria == V.s)) && (!V.m || p.marca_id == V.m) && (!q || nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '') + ' ' + p.categoria + ' ' + ((mById(p.marca_id) || {}).nome || '')).includes(q)));
+  return PV().filter(p => (!V.a || p.categoria == V.a) && (!V.s || (V.s == '__outros' ? !p.subcategoria : p.subcategoria == V.s)) && (!V.m || p.marca_id == V.m) && (!q || nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '') + ' ' + p.categoria + ' ' + ((mById(p.marca_id) || {}).nome || '')).includes(q)));
 }
 const marcasDe = l => MC.map(m => ({ m, n: l.filter(p => p.marca_id == m.id).length })).filter(x => x.n);
 
@@ -418,12 +453,12 @@ function card(p, bd) {
 
 /* ---------- menu lateral e navegação ---------- */
 function sideHtml() {
-  const as = areasComProd(), mv = marcasDe(P);
+  const as = areasComProd(), mv = marcasDe(PV());
   return `<h4>Navegar</h4>
   <button class="sl ${isHome() ? 'on' : ''}" onclick="nav({a:'',s:'',m:'',q:''})"><span>🏠 Início</span></button>
   <button class="sl" onclick="irPara('novidades')"><span>✨ Novidades</span></button>
   <h4>Categorias</h4>
-  ${as.map(k => { const n = P.filter(p => p.categoria == k).length, subs = subsDe(k); return `<button class="sl ${V.a == k && !V.s ? 'on' : ''}" onclick="nav({a:'${k}',s:'',m:''})"><span>${IC[k]} ${k}</span><small>${n}</small></button>
+  ${as.map(k => { const n = P.filter(p => p.categoria == k).length, subs = subsDe(k); return `<button class="sl ${V.a == k && !V.s ? 'on' : ''}" onclick="nav({a:'${k}',s:'',m:''})"><span>${IC[k]} ${k}</span><small>${k == 'Sexshop' && !IDADE_OK ? '18+' : n}</small></button>
     ${V.a == k && subs.length ? `<div class="ss">${subs.map(s => `<button class="sl ${V.s == s ? 'on' : ''}" data-s="${esc(s)}" onclick="nav({s:this.dataset.s})"><span>${esc(s)}</span><small>${P.filter(p => p.categoria == k && p.subcategoria == s).length}</small></button>`).join('')}</div>` : ''}`; }).join('')}
   ${mv.length ? `<h4>Marcas</h4>${mv.map(({ m, n }) => `<button class="sl ${V.m == m.id ? 'on' : ''}" onclick="nav({m:'${m.id}',q:''})"><span class="sb"><span class="lg">${logoM(m)}</span>${esc(m.nome)}</span><small>${n}</small></button>`).join('')}` : ''}
   <h4>Ajuda</h4>
@@ -439,7 +474,7 @@ function navTopo() {
 /* ---------- anúncios (carrossel editável) ---------- */
 const temLink = a => a.link_tipo && a.link_tipo != 'nenhum';
 function heroPadrao() {
-  const nov = ordenar(P, 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4);
+  const nov = ordenar(PH(), 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4);
   return `<section class="hero"><div class="tx"><span class="tg" style="position:static;background:none;padding:0;color:#bdbdc4;letter-spacing:.22em">ROZIVALDO STORE</span><h1>Moda, lingerie<br>e sex shop</h1><p>Marcas selecionadas, pagamento no Pix e atendimento direto com a loja. Escolha, monte seu carrinho e finalize em poucos toques.</p><button class="go" onclick="irPara('novidades')">VER NOVIDADES</button></div>
     <div class="col">${[0, 1, 2, 3].map(i => fotos[i] ? `<div style="background-image:url('${fotos[i].foto}')"></div>` : '<div class="ph0">🛍️</div>').join('')}</div></section>`;
 }
@@ -516,7 +551,7 @@ function trackAuto() {
 /* ---------- como comprar + rodapé ---------- */
 const waLoja = () => { const d = whats().replace(/\D/g, ''); return d ? `https://wa.me/${d.length <= 11 ? '55' + d : d}` : ''; };
 function rodape() {
-  const as = areasComProd(), mv = marcasDe(P), wa = waLoja(), ig = cfg('instagram', INSTAGRAM_LOJA).replace(/[@\s]/g, ''), hor = cfg('horario', HORARIO_LOJA), end = cfg('endereco', ENDERECO_LOJA);
+  const as = areasComProd(), mv = marcasDe(PV()), wa = waLoja(), ig = cfg('instagram', INSTAGRAM_LOJA).replace(/[@\s]/g, ''), hor = cfg('horario', HORARIO_LOJA), end = cfg('endereco', ENDERECO_LOJA);
   $('#como').innerHTML = `<div class="comoi"><h2>Como comprar</h2><div class="steps3">
     <div><span class="n">1</span><b>Escolha suas peças</b><small>Navegue por marca ou categoria e veja fotos, tamanhos e preços.</small></div>
     <div><span class="n">2</span><b>Monte o carrinho</b><small>Adicione tudo o que quiser e revise o pedido antes de finalizar.</small></div>
@@ -526,7 +561,7 @@ function rodape() {
     <div><div class="fl"><svg viewBox="0 0 64 64"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#fff" stroke-width="3"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#fff" stroke-width="3"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#fff" font-family="sans-serif">R</text></svg><div><b>ROZIVALDO STORE</b><small>MODA · LINGERIE · SEX SHOP</small></div></div>
       <p>Moda, lingerie e sex shop com marcas selecionadas. Monte seu carrinho, pague no Pix e a gente cuida do resto.</p>
       <div class="soc">${wa ? `<a target="_blank" rel="noopener" href="${wa}">💬 WhatsApp</a>` : ''}${ig ? `<a target="_blank" rel="noopener" href="https://instagram.com/${ig}">📸 Instagram</a>` : ''}<a href="#" onclick="abrirSug();return false">💡 Pedir produto</a></div></div>
-    <div><h5>Navegue</h5><a href="#" onclick="nav({a:'',s:'',m:'',q:''});return false">Início</a><a href="#" onclick="irPara('novidades');return false">Novidades</a>${as.map(k => `<a href="#" onclick="nav({a:'${k}',s:'',m:''});return false">${IC[k]} ${k} <span style="color:#6f6f77">(${P.filter(p => p.categoria == k).length})</span></a>`).join('')}</div>
+    <div><h5>Navegue</h5><a href="#" onclick="nav({a:'',s:'',m:'',q:''});return false">Início</a><a href="#" onclick="irPara('novidades');return false">Novidades</a>${as.map(k => `<a href="#" onclick="nav({a:'${k}',s:'',m:''});return false">${IC[k]} ${k} <span style="color:#6f6f77">(${k == 'Sexshop' && !IDADE_OK ? '18+' : P.filter(p => p.categoria == k).length})</span></a>`).join('')}</div>
     <div><h5>Nossas marcas</h5>${mv.length ? `<div class="fmarcas">${mv.slice(0, 9).map(({ m }) => `<button title="${esc(m.nome)}" onclick="nav({m:'${m.id}',q:''})">${logoM(m)}</button>`).join('')}</div>` : '<p>Em breve.</p>'}</div>
     <div><h5>Atendimento e pagamento</h5><div class="pays"><span>⚡ Pix</span><span>💸 Entrada via Pix</span></div>
       <p class="fi" style="margin:0 0 8px">Pague o valor total ou dê uma entrada e combine o restante com a loja.</p>
@@ -538,7 +573,7 @@ function rodape() {
 
 /* ---------- páginas ---------- */
 function homeHtml() {
-  const bd = baseDia(), nov = ordenar(P, 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4), as = areasComProd(), mv = marcasDe(P);
+  const bd = baseDia(), nov = ordenar(PH(), 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4), as = areasHome(), mv = marcasDe(PH());
   const nomes = mv.slice(0, 3).map(x => x.m.nome).join(', ');
   const cats = []; as.forEach(k => { const ss = subsDe(k); if (ss.length) ss.forEach(s => cats.push({ t: s, k, s, img: (P.find(p => p.categoria == k && p.subcategoria == s && p.foto) || {}).foto })); else cats.push({ t: k, k, img: (P.find(p => p.categoria == k && p.foto) || {}).foto }); });
   return `${heroHtml()}
@@ -550,12 +585,14 @@ function homeHtml() {
 }
 function listHtml() {
   const bd = baseDia(), l = ordenar(filtrar(), V.o), mm = mById(V.m);
-  const escopo = P.filter(p => (!V.a || p.categoria == V.a)), mv = marcasDe(escopo), subs = V.a ? subsDe(V.a) : [];
+  const escopo = PV().filter(p => (!V.a || p.categoria == V.a)), mv = marcasDe(escopo), subs = V.a ? subsDe(V.a) : [];
   const crumbs = ['<button onclick="nav({a:\'\',s:\'\',m:\'\',q:\'\'})">Início</button>'];
   if (V.a) crumbs.push(`<button onclick="nav({a:'${V.a}',s:'',m:''})">${V.a}</button>`);
   if (V.s) crumbs.push(V.s == '__outros' ? 'Outros' : esc(V.s)); if (mm) crumbs.push(esc(mm.nome)); if (V.q) crumbs.push('Busca');
   const titulo = V.q ? `Resultados para “${esc(V.q)}”` : mm ? esc(mm.nome) : V.s ? (V.s == '__outros' ? 'Outros' : esc(V.s)) : V.a;
+  const qn = nz(V.q.trim()), ocultos = !IDADE_OK && qn ? P.filter(p => ehAdulto(p) && nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '') + ' ' + p.categoria + ' ' + ((mById(p.marca_id) || {}).nome || '')).includes(qn)).length : 0;
   return `<div class="bc">${crumbs.join(' › ')}</div>
+  ${ocultos ? `<div class="res" style="margin-bottom:12px">🔞 ${ocultos} ${ocultos == 1 ? 'resultado' : 'resultados'} na área Sexshop (somente para maiores de 18 anos). <button class="lnk2" onclick="verAdulto()">Ver resultados</button></div>` : ''}
   ${mm && !V.q ? `<div class="bn"><span class="lg">${logoM(mm)}</span><div><h2>${esc(mm.nome)}</h2><small>${(mm.areas || []).map(a => IC[a] + ' ' + a).join(' · ')}</small></div></div>` : ''}
   <div class="lh"><h1>${titulo}</h1><div><small>${l.length} ${l.length == 1 ? 'produto' : 'produtos'}</small> &nbsp;<select onchange="nav({o:this.value},true)">${[['novos', 'Mais novos'], ['menor', 'Menor preço'], ['maior', 'Maior preço'], ['nome', 'A → Z']].map(([v, t]) => `<option value="${v}" ${V.o == v ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
   ${subs.length ? `<div class="chs"><button class="${!V.s ? 'on' : ''}" onclick="nav({s:''})">Todas as categorias</button>${subs.map(s => `<button class="${V.s == s ? 'on' : ''}" data-s="${esc(s)}" onclick="nav({s:this.dataset.s})">${esc(s)}</button>`).join('')}</div>` : ''}
@@ -563,6 +600,7 @@ function listHtml() {
   ${l.length ? `<div class="gr">${l.map(p => card(p, bd)).join('')}</div>` : `<div class="vz">Nenhum produto encontrado${V.q ? ' para “' + esc(V.q) + '”' : ''}.<br><br><button class="btn" onclick="abrirSug('${esc(V.q).replace(/'/g, '')}')">💡 Pedir ${V.q ? 'este produto' : 'um produto'}</button></div>`}`;
 }
 function render() {
+  if (alvoAdulto()) { PEND = { a: V.a, s: V.s, m: V.m, q: V.q }; V = { ...V, a: '', s: '', m: '' }; try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} abrirIdade(); }
   if (V.a && !areasComProd().includes(V.a)) V.a = '';
   const on = cfg('faixa_ativa', 'true') != 'false', tx = cfg('faixa_texto', 'CATÁLOGO VIRTUAL · ROZIVALDO STORE'), fx = $('#faixa'); fx.hidden = !on || !tx; fx.textContent = tx;
   $('#side').innerHTML = sideHtml(); navTopo(); rodape();
@@ -585,17 +623,32 @@ function cartRender() {
 /* ---------- detalhe do produto ---------- */
 async function detalhe(id) {
   const p = P.find(x => x.id == id); if (!p) return;
+  if (!IDADE_OK && ehAdulto(p)) { PEND = { detalhe: id }; return abrirIdade(); }
   GAL = { id, fotos: p.foto ? [p.foto] : [], tam: '' };
   const m = mById(p.marca_id);
   $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet det"><button class="x dgx" onclick="fecha()" aria-label="Fechar">✕</button><div class="dt">
   <div><div class="gwrap"><div class="gal" id="gal" onscroll="galScroll()"></div><button class="gnav l" id="gl" onclick="galGo(-1)" aria-label="Foto anterior">‹</button><button class="gnav r" id="gr" onclick="galGo(1)" aria-label="Próxima foto">›</button><span class="gcount" id="gcount"></span></div><div class="gthumbs" id="gthumbs"></div></div>
   <div class="dti">${m ? `<span class="lg">${logoM(m)}</span>` : ''}<h2>${esc(p.nome)}</h2><div class="pr">${R(p.preco)}</div>
   <small>${IC[p.categoria] || ''} ${p.categoria}${p.subcategoria ? ' › ' + esc(p.subcategoria) : ''}${m ? ' · ' + esc(m.nome) : ''} · SKU ${esc(sku(p))}</small>
+  ${p.descricao ? `<div class="desc"><div class="lbl2">Descrição do produto</div><div class="dtx ${p.descricao.length > 280 ? 'c' : ''}" id="dtx">${esc(p.descricao)}</div>${p.descricao.length > 280 ? '<button class="lnk2" id="dmais" onclick="descMais()">Ler mais</button>' : ''}</div>` : ''}
   ${temTam(p) ? '<div class="lbl2">Escolha o tamanho</div><div class="szs" id="szs"></div>' : p.tam_consulta ? '<div class="nota2">📏 Consulte o tamanho disponível: confirmamos com você pelo WhatsApp.</div>' : ''}
-  <button class="btn w" id="addb" style="margin-top:16px" onclick="addDet(false)"></button><button class="btn alt w" id="buyb" style="margin-top:8px" onclick="addDet(true)">Comprar agora</button></div></div></div></div>`;
+  <div class="dtb"><button class="btn w" id="addb" onclick="addDet(false)"></button><button class="btn alt w" id="buyb" style="margin-top:8px" onclick="addDet(true)">Comprar agora</button></div></div></div></div></div>`;
   galDesenha(); szDesenha();
   if ((p.n_fotos || 0) > 1) { const { data } = await db.from('produto_fotos').select('url').eq('produto_id', id).order('ordem'); if (data && data.length && GAL.id == id) { GAL.fotos = data.map(x => x.url); galDesenha(); } }
 }
+function descMais() { const d = $('#dtx'), b = $('#dmais'); if (!d) return; const aberto = d.classList.toggle('c'); if (b) b.textContent = aberto ? 'Ler mais' : 'Ler menos'; }
+function abrirIdade() {
+  $('#modal').innerHTML = `<div class="bk"><div class="sheet idade"><div class="i18">18+</div><h2>Conteúdo para maiores de 18 anos</h2><p class="mut" style="margin-top:6px">Esta área reúne produtos destinados exclusivamente a pessoas com 18 anos ou mais.</p>
+  <label class="chk"><input type="checkbox" id="i18c" onchange="document.getElementById('i18b').disabled=!this.checked"><span>Declaro que tenho <b>18 anos ou mais</b> e desejo continuar.</span></label>
+  <button class="btn w" id="i18b" disabled onclick="idadeOk()">Continuar</button><button class="btn alt w" style="margin-top:8px" onclick="fecha()">Voltar</button></div></div>`;
+}
+function idadeOk() {
+  const c = document.getElementById('i18c'); if (!c || !c.checked) return;
+  IDADE_OK = true; try { localStorage.setItem('rs_18', String(Date.now())); } catch (e) {}
+  const p = PEND; PEND = null; fecha();
+  if (p && p.detalhe) { render(); detalhe(p.detalhe); } else if (p) nav({ a: p.a, s: p.s, m: p.m, q: p.q }); else render();
+}
+const verAdulto = () => nav({ a: 'Sexshop', s: '', m: '', q: V.q });
 function galDesenha() {
   const g = $('#gal'); if (!g) return; const f = GAL.fotos;
   g.innerHTML = f.length ? f.map(u => `<div class="gs"><img src="${u}" alt=""></div>`).join('') : '<div class="gs"><div class="pimg">🛍️</div></div>';
@@ -613,7 +666,7 @@ function szDesenha() {
 }
 function tamPick(t) { GAL.tam = GAL.tam == t ? '' : t; szDesenha(); }
 function addDet(comprar) { const p = P.find(x => x.id == GAL.id); if (!p || (temTam(p) && !GAL.tam)) return; mud(keyOf(p.id, GAL.tam), 1); fecha(); if (comprar) ckAbrir(); else toast('Adicionado ao carrinho', 'Ver carrinho', 'abrirCarrinho()'); }
-function fecha() { GAL.id = ''; $('#modal').innerHTML = ''; }
+function fecha() { GAL.id = ''; PEND = null; $('#modal').innerHTML = ''; }
 document.addEventListener('keydown', e => { if (e.key == 'Escape') { if ($('#modal').innerHTML) fecha(); else { fechaCarrinho(); menu(false); } } if (GAL.id && $('#gal')) { if (e.key == 'ArrowRight') galGo(1); if (e.key == 'ArrowLeft') galGo(-1); } });
 
 /* ---------- Pix (Copia e Cola) ---------- */

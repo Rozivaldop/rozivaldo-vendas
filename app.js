@@ -1354,6 +1354,7 @@ function formProd(id) {
   <input class="inp" name="nova_marca" maxlength="40" placeholder="Nome da nova marca / fornecedor" hidden>
   <input class="inp" name="preco" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Preço de venda (R$)" value="${p.preco ?? ''}" required>
   <div><small>Preço de custo (R$): quanto você pagou</small>${eyeBtn()}<input class="inp ci" name="custo" type="text" autocomplete="off" inputmode="decimal" placeholder="0,00" value="${p.custo ?? ''}"></div>
+  <textarea class="inp" name="descricao" rows="5" maxlength="2000" placeholder="Descrição do produto (o que é, como usar, composição, cuidados...). Aparece na tela do produto no catálogo.">${esc(p.descricao)}</textarea>
   ${tamHtml(p)}
   <div class="card"><div class="row"><small>📷 Fotos do produto (até 5): a primeira é a principal</small><small id="ftc"></small></div><div class="fts" id="fts"></div></div>
   <label class="row"><span>Mostrar na vitrine online</span><input type="checkbox" name="vitrine" ${p.vitrine === false ? '' : 'checked'}></label>
@@ -1392,8 +1393,9 @@ async function salvaProd(e, id) {
   const modo = fd.get('tmodo') || 'nenhum';
   d.tamanhos = modo == 'lista' ? fd.getAll('tam').map(t => String(t).replace(/:/g, '')) : [];
   d.tam_consulta = modo == 'consulta';
+  d.descricao = (fd.get('descricao') || '').trim() || null;
   if (FTD) { d.foto = FT[0] ? await redimN(FT[0], 420, 0.8) : null; d.n_fotos = FT.length; }
-  const SQLDE = { tamanhos: 'atualizacao-fotos-tamanhos.sql', tam_consulta: 'atualizacao-fotos-tamanhos.sql', n_fotos: 'atualizacao-fotos-tamanhos.sql', marca_id: 'atualizacao-marcas.sql', subcategoria: 'atualizacao-categorias.sql', custo: 'atualizacao-lucro.sql', sku: 'atualizacao-inicio.sql' }, perdidos = [];
+  const SQLDE = { tamanhos: 'atualizacao-fotos-tamanhos.sql', tam_consulta: 'atualizacao-fotos-tamanhos.sql', n_fotos: 'atualizacao-fotos-tamanhos.sql', marca_id: 'atualizacao-marcas.sql', subcategoria: 'atualizacao-categorias.sql', custo: 'atualizacao-lucro.sql', sku: 'atualizacao-inicio.sql', descricao: 'atualizacao-descricao.sql' }, perdidos = [];
   let r0;
   for (let i = 0; i < 8; i++) {
     r0 = id ? await db.from('produtos').update(d).eq('id', id).select('id').single() : await db.from('produtos').insert(d).select('id').single();

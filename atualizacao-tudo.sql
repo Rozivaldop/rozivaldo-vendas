@@ -323,3 +323,9 @@ revoke all on function acompanhar_pedido(text, text) from public;
 grant execute on function acompanhar_pedido(text, text) to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ---------- atualizacao-descricao.sql ----------
+-- Cole no SQL Editor do Supabase e clique em Run
+-- Descrição do produto (aparece na tela do produto no catálogo)
+alter table produtos add column if not exists descricao text;
+notify pgrst, 'reload schema';
