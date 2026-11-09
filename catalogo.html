@@ -308,6 +308,77 @@ html:has(body.travado),html:has(body.cart),html:has(body.menu){overflow:hidden}
  .dtb{position:sticky;bottom:0;background:#fff;margin:14px -18px 0;padding:10px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);z-index:3}
 }
 @media(max-width:560px){.ph{aspect-ratio:4/5}.pn{min-height:2.4em;font-size:.88rem}.sheet.det{max-height:96dvh}}
+
+/* ===== LAYOUT ESTILO LOJA (filtros + linhas + produtos) ===== */
+.shell{grid-template-columns:250px minmax(0,1fr);gap:26px;padding:18px 18px 30px}
+.side{top:84px;max-height:calc(100vh - 100px)}
+.side h4{margin:20px 0 8px;font-size:.68rem;letter-spacing:.16em}
+.sl.ln{font-weight:700;margin-top:4px}
+.sl.sb2{padding:6px 10px 6px 22px;font-size:.84rem;color:#555;font-weight:500}
+.sl.sb2.on{color:#fff}
+.sl small{color:#9ca3af}
+.tbar{display:flex;flex-direction:column;gap:10px;margin:0 0 14px}
+.chs.ar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0}
+.chs.ar::-webkit-scrollbar{display:none}
+.chs.ar button{flex:none;padding:10px 18px;font-weight:700;font-size:.86rem}
+.sels{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sels select{border:1px solid var(--line);border-radius:999px;padding:9px 34px 9px 14px;font:inherit;font-size:.86rem;font-weight:600;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%23111' stroke-width='1.8'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 14px center;-webkit-appearance:none;appearance:none;max-width:100%}
+.sels .lnk2{color:#dc2626;padding:0 4px}
+.cnt{margin-left:auto;font-size:.82rem;color:var(--mut);white-space:nowrap}
+.chs.sbs{margin:-4px 0 14px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.chs.sbs button{flex:none;font-size:.8rem;padding:7px 14px}
+.ctx{font-size:1.1rem;font-weight:800;margin:4px 0 12px}
+.fxs2{display:grid;gap:10px;margin-bottom:14px}
+.fx{position:relative;display:flex;align-items:center;justify-content:center;gap:22px 34px;width:100%;border:0;border-radius:14px;padding:16px 28px;min-height:84px;overflow:hidden;text-align:left;font:inherit;flex-wrap:wrap}
+button.fx{cursor:pointer}
+.fxi{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.32}
+.fxt{position:relative;display:flex;flex-direction:column;gap:3px}
+.fxh{font-size:clamp(1.45rem,3.2vw,2.5rem);font-weight:800;text-transform:uppercase;line-height:1;letter-spacing:.005em}
+.fxs{font-size:.95rem;opacity:.92}
+.fxb{position:relative;font-weight:800;padding:12px 24px;border-radius:999px;font-size:.86rem;white-space:nowrap}
+.cd{position:relative;display:flex;align-items:center;gap:8px;border-left:1px solid #ffffff40;padding-left:26px}
+.cd small{color:inherit;opacity:.8;text-transform:uppercase;letter-spacing:.1em;font-size:.64rem;max-width:74px;line-height:1.25;margin-right:4px}
+.cdb{display:flex;flex-direction:column;align-items:center;min-width:44px}
+.cdb b{font-size:1.55rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.cdb i{font-style:normal;font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;opacity:.8;margin-top:2px}
+.hero2{margin-bottom:16px}
+.sl2{min-height:260px}
+.sl2 .tt{padding:34px 44px;gap:10px}
+.sl2 .tt .cd{border-left:0;padding-left:0;margin-top:2px}
+.sl2 .h{font-size:clamp(1.7rem,3.8vw,3rem)}
+.gr{grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:18px}
+.pc{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:.18s}
+.pc:hover{border-color:#111;box-shadow:0 8px 24px #0001}
+.ph{border-radius:0;aspect-ratio:3/4}
+.pi{padding:12px 14px 14px;gap:2px}
+.pn{text-transform:uppercase;font-weight:800;font-size:.9rem;line-height:1.22;min-height:2.45em;letter-spacing:.005em}
+.rf{font-size:.72rem;color:var(--mut)}
+.pp{font-size:1.28rem;font-weight:800;margin-top:6px}
+.pf{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}
+.pf .tm{font-size:.72rem;color:var(--mut);line-height:1.25;min-width:0}
+.ga{background:none;border:0;padding:0;font-weight:800;font-size:.74rem;letter-spacing:.05em;text-transform:uppercase;color:#111;text-align:right;flex:none;max-width:60%}
+.ga:hover{text-decoration:underline}.ga.in{color:#16a34a}
+.como{margin-top:30px}.comoi{padding:18px 18px}
+.steps3{gap:12px}.steps3>div{display:flex;align-items:center;gap:12px;padding:12px 16px;text-align:left}
+.steps3 .n{width:34px;height:34px;margin:0;flex:none;font-size:.9rem}
+.steps3 b{display:block;margin:0}.steps3 small{display:block;font-size:.76rem}
+.fti{grid-template-columns:1.2fr 1.3fr 1fr;gap:34px;padding:34px 18px 26px}
+.fmarcas{display:flex;flex-wrap:wrap;gap:10px}
+.fmarcas button{flex:1 1 calc(33.333% - 10px);min-width:92px;max-width:150px}
+@media(max-width:900px){
+ .shell{grid-template-columns:minmax(0,1fr);padding:12px 12px 24px}
+ .gr{grid-template-columns:repeat(2,1fr);gap:12px}
+ .pn{font-size:.82rem}.pp{font-size:1.1rem}
+ .pf{flex-direction:column;align-items:flex-start;gap:4px}.ga{max-width:100%;text-align:left}
+ .fx{padding:14px 16px;gap:10px 18px;justify-content:space-between}
+ .fxt{flex:1 1 100%}.cd{border-left:0;padding-left:0}.fxb{margin-left:auto}
+ .sl2{min-height:210px}.sl2 .tt{padding:24px 20px}
+ .steps3{grid-template-columns:1fr}.fti{grid-template-columns:1fr;gap:26px}
+ .fmarcas button{flex:1 1 calc(33.333% - 10px)}
+}
+@media(max-width:560px){.cdb{min-width:38px}.cdb b{font-size:1.25rem}.cd small{display:none}.cnt{width:100%;margin-left:0}}
+
+.fmarcas{justify-content:center}
 </style>
 </head>
 <body>
@@ -322,7 +393,7 @@ html:has(body.travado),html:has(body.cart),html:has(body.menu){overflow:hidden}
     <div class="sr"><input id="q" type="search" placeholder="O que você procura?" autocomplete="off" oninput="buscar(this.value)"><span>🔎</span></div>
     <div class="act"><button class="lk" onclick="nav({v:'acompanhar'})" title="Acompanhar meu pedido"><svg viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span class="so-d">Acompanhar pedido</span><span class="so-m">Acompanhar</span></button><button class="cartb" onclick="abrirCarrinho()" aria-label="Abrir carrinho"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><i id="cn">0</i><span>Carrinho</span><small id="ct">R$ 0,00</small></button></div>
   </div>
-  <nav class="nv"><div class="nvi" id="nv"></div></nav>
+  
 </header>
 <div class="shell">
   <aside class="side" id="side"></aside>
@@ -356,7 +427,7 @@ const CATS = ['Masculino', 'Feminino', 'Lingerie', 'Sexshop'];
 const IC = { Masculino: '👔', Feminino: '👗', Lingerie: '💗', Sexshop: '🔥' };
 const mkId = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
 
-let P = [], SC = [], MC = [], V = { a: '', s: '', m: '', q: '', o: 'novos', v: '', c: '' }, GAL = { id: '', fotos: [], tam: '' }, CK = { passo: 1, nome: '', tel: '', obs: '', forma: 'pix_total', pct: 50, outro: '' }, tmrBusca = null;
+let P = [], SC = [], MC = [], V = { a: '', s: '', m: '', q: '', t: '', o: 'novos', v: '', c: '' }, GAL = { id: '', fotos: [], tam: '' }, CK = { passo: 1, nome: '', tel: '', obs: '', forma: 'pix_total', pct: 50, outro: '' }, tmrBusca = null;
 const mById = id => MC.find(m => m.id == id);
 /* ---------- confirmação de maioridade (área Sexshop) ---------- */
 const IDADE_DIAS = 7;   // por quantos dias lembrar a confirmação neste aparelho
@@ -383,9 +454,9 @@ const rotulo = x => esc(x.p.nome) + (x.tam ? ' · ' + esc(x.tam) : x.p.tam_consu
 function mud(k, d) {
   cart[k] = (cart[k] || 0) + d; if (cart[k] <= 0) delete cart[k];
   salvaCart(); updHeader(); cartRender();
-  const id = k.split('::')[0]; document.querySelectorAll('[data-add="' + id + '"]').forEach(b => { const p = P.find(x => x.id == id); if (p) { b.className = 'add ' + addCls(p); b.innerHTML = addLabel(p); } });
+  const id = k.split('::')[0]; document.querySelectorAll('[data-add="' + id + '"]').forEach(b => { const p = P.find(x => x.id == id); if (p) { b.className = 'ga ' + addCls(p); b.innerHTML = addLabel(p); } });
 }
-function remover(k) { delete cart[k]; salvaCart(); updHeader(); cartRender(); const id = k.split('::')[0]; document.querySelectorAll('[data-add="' + id + '"]').forEach(b => { const p = P.find(x => x.id == id); if (p) { b.className = 'add ' + addCls(p); b.innerHTML = addLabel(p); } }); }
+function remover(k) { delete cart[k]; salvaCart(); updHeader(); cartRender(); const id = k.split('::')[0]; document.querySelectorAll('[data-add="' + id + '"]').forEach(b => { const p = P.find(x => x.id == id); if (p) { b.className = 'ga ' + addCls(p); b.innerHTML = addLabel(p); } }); }
 function toast(msg, acao, fn) {
   const t = $('#toast'); t.innerHTML = esc(msg) + (acao ? `<button onclick="${fn}">${acao}</button>` : ''); t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3200);
 }
@@ -403,24 +474,24 @@ async function init() {
   for (const k of Object.keys(cart)) if (!prodDe(k)) delete cart[k];
   salvaCart(); lerHash(); render();
 }
-function lerHash() { const p = new URLSearchParams(location.hash.slice(1)); V = { a: p.get('a') || '', s: p.get('s') || '', m: p.get('m') || '', q: p.get('q') || '', o: p.get('o') || 'novos', v: p.get('v') || '', c: p.get('c') || '' }; const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q; }
+function lerHash() { const p = new URLSearchParams(location.hash.slice(1)); V = { a: p.get('a') || '', s: p.get('s') || '', m: p.get('m') || '', q: p.get('q') || '', t: p.get('t') || '', o: p.get('o') || 'novos', v: p.get('v') || '', c: p.get('c') || '' }; const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q; }
 function nav(o, sub) {
   V = { ...V, ...o };
-  if (('a' in o || 'm' in o || 'q' in o || 's' in o) && !('v' in o)) { V.v = ''; V.c = ''; }
+  if (('a' in o || 'm' in o || 'q' in o || 's' in o || 't' in o) && !('v' in o)) { V.v = ''; V.c = ''; }
   if ('a' in o && !('s' in o)) V.s = '';
-  if (o.v) { V.a = ''; V.s = ''; V.m = ''; V.q = ''; }
-  const p = new URLSearchParams(); for (const k of ['a', 's', 'm', 'q', 'v', 'c']) if (V[k]) p.set(k, V[k]); if (V.o != 'novos') p.set('o', V.o);
+  if (o.v) { V.a = ''; V.s = ''; V.m = ''; V.q = ''; V.t = ''; }
+  const p = new URLSearchParams(); for (const k of ['a', 's', 'm', 'q', 't', 'v', 'c']) if (V[k]) p.set(k, V[k]); if (V.o != 'novos') p.set('o', V.o);
   const h = p.toString(); history[sub ? 'replaceState' : 'pushState'](null, '', location.pathname + location.search + (h ? '#' + h : ''));
   menu(false); fechaCarrinho(); render(); if (!sub) window.scrollTo({ top: 0, behavior: 'smooth' }); const i = $('#q'); if (i && document.activeElement !== i) i.value = V.q;
 }
 window.addEventListener('popstate', () => { lerHash(); render(); });
 if (window.MutationObserver) { const mo = document.querySelector('#modal'); if (mo) new MutationObserver(() => document.body.classList.toggle('travado', !!mo.firstChild)).observe(mo, { childList: true }); }
-function buscar(v) { clearTimeout(tmrBusca); tmrBusca = setTimeout(() => { V.q = v.trim(); V.v = ''; V.c = ''; if (V.q) { V.a = ''; V.s = ''; V.m = ''; } nav({}, true); }, 220); }
+function buscar(v) { clearTimeout(tmrBusca); tmrBusca = setTimeout(() => { V.q = v.trim(); V.v = ''; V.c = ''; if (V.q) { V.a = ''; V.s = ''; V.m = ''; V.t = ''; } nav({}, true); }, 220); }
 function irPara(id) { menu(false); if (!isHome()) nav({ a: '', s: '', m: '', q: '' }); setTimeout(() => { const e = document.getElementById(id); if (e) e.scrollIntoView({ behavior: 'smooth' }); }, 120); }
 function menu(on) { document.body.classList.toggle('menu', !!on); if (on) document.body.classList.remove('cart'); }
 
 /* ---------- utilidades de listagem ---------- */
-const isHome = () => !V.v && !V.a && !V.s && !V.m && !V.q;
+const isHome = () => !V.v && !V.a && !V.s && !V.m && !V.q && !V.t;
 const dia = p => String(p.criado_em || '').slice(0, 10);
 function baseDia() { const c = {}; P.forEach(p => { const d = dia(p); if (d) c[d] = (c[d] || 0) + 1; }); const t = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return t && t[1] > P.length / 2 && P.length > 4 ? t[0] : ''; }
 const novo = (p, bd) => p.criado_em && Date.now() - new Date(p.criado_em) < 14 * 864e5 && dia(p) != bd;
@@ -435,54 +506,62 @@ const areasHome = () => areasComProd().filter(k => k != 'Sexshop');
 const alvoAdulto = () => !IDADE_OK && (V.a == 'Sexshop' || (!!V.m && !V.a && P.some(p => p.marca_id == V.m) && P.filter(p => p.marca_id == V.m).every(ehAdulto)));
 const subsDe = a => { const l = P.filter(p => p.categoria == a), ord = SC.filter(s => s.area == a).map(s => s.nome), ex = [...new Set(l.map(p => p.subcategoria).filter(Boolean))].filter(n => !ord.includes(n)); return [...ord, ...ex].filter(n => l.some(p => p.subcategoria == n)); };
 function filtrar() {
-  const q = nz(V.q.trim());
-  return PV().filter(p => (!V.a || p.categoria == V.a) && (!V.s || (V.s == '__outros' ? !p.subcategoria : p.subcategoria == V.s)) && (!V.m || p.marca_id == V.m) && (!q || nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '') + ' ' + p.categoria + ' ' + ((mById(p.marca_id) || {}).nome || '')).includes(q)));
+  const q = nz(V.q.trim()), base = (!V.a && !V.s && !V.m && !V.q && !V.t) ? PH() : PV();
+  return base.filter(p => (!V.a || p.categoria == V.a) && (!V.s || (V.s == '__outros' ? !p.subcategoria : p.subcategoria == V.s)) && (!V.m || p.marca_id == V.m) && (!V.t || (p.tamanhos || []).includes(V.t)) && (!q || nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '') + ' ' + p.categoria + ' ' + ((mById(p.marca_id) || {}).nome || '')).includes(q)));
 }
 const marcasDe = l => MC.map(m => ({ m, n: l.filter(p => p.marca_id == m.id).length })).filter(x => x.n);
 
 /* ---------- cartões de produto ---------- */
 const addCls = p => temTam(p) ? 'ghost' : qtdProd(p.id) ? 'in' : '';
-const addLabel = p => temTam(p) ? (qtdProd(p.id) ? '✓ ' + qtdProd(p.id) + ' no carrinho · opções' : 'Ver opções') : qtdProd(p.id) ? '✓ ' + qtdProd(p.id) + ' no carrinho · +1' : 'Adicionar';
+const addLabel = p => { const q = qtdProd(p.id); return temTam(p) ? (q ? '✓ ' + q + ' no carrinho' : 'Ver opções →') : q ? '✓ ' + q + ' no carrinho · +1' : 'Adicionar →'; };
 function addRapido(id) { const p = P.find(x => x.id == id); if (!p) return; if (temTam(p)) return detalhe(id); mud(id, 1); toast('Adicionado ao carrinho', 'Ver carrinho', 'abrirCarrinho()'); }
 function card(p, bd) {
-  const m = mById(p.marca_id);
+  const m = mById(p.marca_id), tm = temTam(p) ? `${p.tamanhos.length} ${p.tamanhos.length == 1 ? 'tam.' : 'tams.'} · ${p.tamanhos.slice(0, 5).map(esc).join(' ')}` : p.tam_consulta ? 'Consulte o tamanho' : '';
   return `<article class="pc"><div class="ph" onclick="detalhe('${p.id}')">${p.foto ? `<img src="${p.foto}" alt="${esc(p.nome)}" loading="lazy">` : '<div class="pimg">🛍️</div>'}${novo(p, bd) ? '<span class="tg">NOVO</span>' : ''}${p.n_fotos > 1 ? `<span class="nf">📷 ${p.n_fotos}</span>` : ''}${m ? `<span class="mb">${logoM(m)}</span>` : ''}</div>
-  <div class="pi">${m ? `<span class="mn">${esc(m.nome)}</span>` : ''}<h3 class="pn">${esc(p.nome)}</h3><div class="pp">${R(p.preco)}</div>${temTam(p) ? `<span class="tm">Tam: ${p.tamanhos.map(esc).join(' · ')}</span>` : p.tam_consulta ? '<span class="tm">📏 Consulte o tamanho</span>' : ''}
-  <button class="add ${addCls(p)}" data-add="${p.id}" onclick="addRapido('${p.id}')">${addLabel(p)}</button></div></article>`;
+  <div class="pi"><h3 class="pn">${esc(p.nome)}</h3><span class="rf">Ref ${esc(sku(p))}${m ? ' · ' + esc(m.nome) : ''}</span><div class="pp">${R(p.preco)}</div>
+  <div class="pf"><span class="tm">${tm}</span><button class="ga ${addCls(p)}" data-add="${p.id}" onclick="addRapido('${p.id}')">${addLabel(p)}</button></div></div></article>`;
 }
 
-/* ---------- menu lateral e navegação ---------- */
+/* ---------- menu lateral (linhas, marcas e ajuda) ---------- */
 function sideHtml() {
   const as = areasComProd(), mv = marcasDe(PV());
-  return `<h4>Navegar</h4>
-  <button class="sl ${isHome() ? 'on' : ''}" onclick="nav({a:'',s:'',m:'',q:''})"><span>🏠 Início</span></button>
-  <button class="sl" onclick="irPara('novidades')"><span>✨ Novidades</span></button>
-  <h4>Categorias</h4>
-  ${as.map(k => { const n = P.filter(p => p.categoria == k).length, subs = subsDe(k); return `<button class="sl ${V.a == k && !V.s ? 'on' : ''}" onclick="nav({a:'${k}',s:'',m:''})"><span>${IC[k]} ${k}</span><small>${k == 'Sexshop' && !IDADE_OK ? '18+' : n}</small></button>
-    ${V.a == k && subs.length ? `<div class="ss">${subs.map(s => `<button class="sl ${V.s == s ? 'on' : ''}" data-s="${esc(s)}" onclick="nav({s:this.dataset.s})"><span>${esc(s)}</span><small>${P.filter(p => p.categoria == k && p.subcategoria == s).length}</small></button>`).join('')}</div>` : ''}`; }).join('')}
+  return `<h4>Linhas</h4>
+  <button class="sl ${isHome() ? 'on' : ''}" onclick="nav({a:'',s:'',m:'',q:'',t:''})"><span>Todas</span><small>${PH().length}</small></button>
+  ${as.map(k => { const lock = k == 'Sexshop' && !IDADE_OK, subs = lock ? [] : subsDe(k);
+    return `<button class="sl ln ${V.a == k && !V.s ? 'on' : ''}" onclick="nav({a:'${k}',s:'',m:''})"><span>${IC[k]} ${k}</span><small>${lock ? '18+' : P.filter(p => p.categoria == k).length}</small></button>${subs.map(s => `<button class="sl sb2 ${V.a == k && V.s == s ? 'on' : ''}" data-s="${esc(s)}" onclick="nav({a:'${k}',s:this.dataset.s,m:''})"><span>↳ ${esc(s)}</span><small>${P.filter(p => p.categoria == k && p.subcategoria == s).length}</small></button>`).join('')}`; }).join('')}
   ${mv.length ? `<h4>Marcas</h4>${mv.map(({ m, n }) => `<button class="sl ${V.m == m.id ? 'on' : ''}" onclick="nav({m:'${m.id}',q:''})"><span class="sb"><span class="lg">${logoM(m)}</span>${esc(m.nome)}</span><small>${n}</small></button>`).join('')}` : ''}
   <h4>Ajuda</h4>
   <button class="sl ${V.v == 'acompanhar' ? 'on' : ''}" onclick="nav({v:'acompanhar'})"><span>📦 Acompanhar pedido</span></button>
   <button class="sl" onclick="abrirSug()"><span>💡 Pedir um produto</span></button>
   <button class="sl" onclick="menu(false);abrirCarrinho()"><span>🛒 Meu carrinho</span><small>${nItens()}</small></button>`;
 }
-function navTopo() {
-  const as = areasComProd();
-  $('#nv').innerHTML = `<button class="${isHome() ? 'on' : ''}" onclick="nav({a:'',s:'',m:'',q:''})">Início</button>${as.map(k => `<button class="${V.a == k ? 'on' : ''}" onclick="nav({a:'${k}',s:'',m:''})">${k}</button>`).join('')}<button onclick="irPara('marcas')">Marcas</button><span class="sp"></span><button onclick="abrirSug()">💡 Pedir um produto</button>`;
-}
 
-/* ---------- anúncios (carrossel editável) ---------- */
+/* ---------- anúncios editáveis (faixas e banners) ---------- */
 const temLink = a => a.link_tipo && a.link_tipo != 'nenhum';
-function heroPadrao() {
-  const nov = ordenar(PH(), 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4);
-  return `<section class="hero"><div class="tx"><span class="tg" style="position:static;background:none;padding:0;color:#bdbdc4;letter-spacing:.22em">ROZIVALDO STORE</span><h1>Moda, lingerie<br>e sex shop</h1><p>Marcas selecionadas, pagamento no Pix e atendimento direto com a loja. Escolha, monte seu carrinho e finalize em poucos toques.</p><button class="go" onclick="irPara('novidades')">VER NOVIDADES</button></div>
-    <div class="col">${[0, 1, 2, 3].map(i => fotos[i] ? `<div style="background-image:url('${fotos[i].foto}')"></div>` : '<div class="ph0">🛍️</div>').join('')}</div></section>`;
+const adsAtivos = () => { const h = hojeISO(); return AN.filter(a => a.ativo !== false && (!a.inicio || a.inicio <= h) && (!a.fim || a.fim >= h)).sort((a, b) => a.ordem - b.ordem); };
+const fimMs = a => a.fim ? new Date(a.fim + 'T23:59:59').getTime() : 0;
+function cdHtml(a) {
+  if (!a.contagem || !a.fim) return '';
+  return `<span class="cd" data-fim="${fimMs(a)}"><small>Termina em</small>${[['d', 'dias'], ['h', 'horas'], ['m', 'min'], ['s', 'seg']].map(([u, n]) => `<span class="cdb"><b data-u="${u}">00</b><i>${n}</i></span>`).join('')}</span>`;
 }
-function heroHtml() {
-  const h = hojeISO(), l = AN.filter(a => a.ativo !== false && (!a.inicio || a.inicio <= h) && (!a.fim || a.fim >= h)).sort((a, b) => a.ordem - b.ordem);
-  if (!l.length) return heroPadrao();
-  const slide = a => { const k = temLink(a), bg = esc(a.cor_fundo || '#111111'), tx = esc(a.cor_texto || '#ffffff'), tag = k ? 'button' : 'div';
-    return `<${tag} class="sl2" style="background:${bg};color:${tx};--c:${bg}" ${k ? `onclick="anuncioGo('${a.id}')" aria-label="${esc(a.titulo)}"` : ''}>${a.imagem ? `<img src="${a.imagem}" alt="${esc(a.titulo)}"><span class="ov"></span>` : ''}<span class="tt"><span class="h">${esc(a.titulo)}</span>${a.subtitulo ? `<span class="sub">${esc(a.subtitulo)}</span>` : ''}${k ? `<span class="go2" style="background:${tx};color:${bg}">${esc(a.texto_botao || 'Ver agora')} →</span>` : ''}</span></${tag}>`; };
+function cdTick() {
+  document.querySelectorAll('[data-fim]').forEach(e => {
+    let d = +e.dataset.fim - Date.now(); if (d < 0) d = 0;
+    const v = { d: Math.floor(d / 864e5), h: Math.floor(d % 864e5 / 36e5), m: Math.floor(d % 36e5 / 6e4), s: Math.floor(d % 6e4 / 1e3) };
+    e.querySelectorAll('[data-u]').forEach(b => { b.textContent = String(v[b.dataset.u]).padStart(2, '0'); });
+  });
+}
+let CD_T = null;
+function cdInit() { clearInterval(CD_T); if (document.querySelector('[data-fim]')) { cdTick(); CD_T = setInterval(cdTick, 1000); } }
+function faixaHtml(a) {
+  const k = temLink(a), bg = esc(a.cor_fundo || '#111111'), tx = esc(a.cor_texto || '#ffffff'), bt = esc(a.cor_botao || a.cor_texto || '#ffffff'), btx = a.cor_botao ? '#ffffff' : bg, tag = k ? 'button' : 'div';
+  return `<${tag} class="fx" style="background:${bg};color:${tx}" ${k ? `onclick="anuncioGo('${a.id}')" aria-label="${esc(a.titulo)}"` : ''}>${a.imagem ? `<img class="fxi" src="${a.imagem}" alt="">` : ''}<span class="fxt"><span class="fxh">${esc(a.titulo)}</span>${a.subtitulo ? `<span class="fxs">${esc(a.subtitulo)}</span>` : ''}</span>${cdHtml(a)}${k ? `<span class="fxb" style="background:${bt};color:${btx}">${esc(a.texto_botao || 'Ver ofertas')}</span>` : ''}</${tag}>`;
+}
+const faixasHtml = () => { const l = adsAtivos().filter(a => a.formato == 'faixa'); return l.length ? `<div class="fxs2">${l.map(faixaHtml).join('')}</div>` : ''; };
+function bannersHtml() {
+  const l = adsAtivos().filter(a => a.formato != 'faixa'); if (!l.length) return '';
+  const slide = a => { const k = temLink(a), bg = esc(a.cor_fundo || '#111111'), tx = esc(a.cor_texto || '#ffffff'), bt = esc(a.cor_botao || a.cor_texto || '#ffffff'), btx = a.cor_botao ? '#ffffff' : bg, tag = k ? 'button' : 'div';
+    return `<${tag} class="sl2" style="background:${bg};color:${tx};--c:${bg}" ${k ? `onclick="anuncioGo('${a.id}')" aria-label="${esc(a.titulo)}"` : ''}>${a.imagem ? `<img src="${a.imagem}" alt="${esc(a.titulo)}"><span class="ov"></span>` : ''}<span class="tt"><span class="h">${esc(a.titulo)}</span>${a.subtitulo ? `<span class="sub">${esc(a.subtitulo)}</span>` : ''}${cdHtml(a)}${k ? `<span class="go2" style="background:${bt};color:${btx}">${esc(a.texto_botao || 'Ver agora')} →</span>` : ''}</span></${tag}>`; };
   return `<section class="hero2" id="hero"><div class="hs" id="hs" onscroll="heroScroll()">${l.map(slide).join('')}</div>${l.length > 1 ? `<button class="hbt l" onclick="heroTo(heroIdx()-1)" aria-label="Anúncio anterior">‹</button><button class="hbt r" onclick="heroTo(heroIdx()+1)" aria-label="Próximo anúncio">›</button><div class="hdots" id="hdots">${l.map((_, i) => `<i class="${i == 0 ? 'on' : ''}" onclick="heroTo(${i})"></i>`).join('')}</div>` : ''}</section>`;
 }
 const heroIdx = () => { const s = $('#hs'); return s ? Math.round(s.scrollLeft / (s.clientWidth || 1)) : 0; };
@@ -548,64 +627,53 @@ function trackAuto() {
   if (TR.codigo && TR.tel) trackBusca(); else render();
 }
 
-/* ---------- como comprar + rodapé ---------- */
+/* ---------- rodapé ---------- */
 const waLoja = () => { const d = whats().replace(/\D/g, ''); return d ? `https://wa.me/${d.length <= 11 ? '55' + d : d}` : ''; };
 function rodape() {
-  const as = areasComProd(), mv = marcasDe(PV()), wa = waLoja(), ig = cfg('instagram', INSTAGRAM_LOJA).replace(/[@\s]/g, ''), hor = cfg('horario', HORARIO_LOJA), end = cfg('endereco', ENDERECO_LOJA);
-  $('#como').innerHTML = `<div class="comoi"><h2>Como comprar</h2><div class="steps3">
-    <div><span class="n">1</span><b>Escolha suas peças</b><small>Navegue por marca ou categoria e veja fotos, tamanhos e preços.</small></div>
-    <div><span class="n">2</span><b>Monte o carrinho</b><small>Adicione tudo o que quiser e revise o pedido antes de finalizar.</small></div>
-    <div><span class="n">3</span><b>Pague no Pix</b><small>Valor total ou entrada: o código Pix aparece na hora para copiar e colar.</small></div></div>
-    <div class="ctab"><div><b>Não encontrou o que procura?</b><span>Conte pra gente o que você quer e vamos tentar trazer para a loja.</span></div><button class="btn" onclick="abrirSug()">💡 Pedir um produto</button></div></div>`;
+  const mv = marcasDe(PV()), wa = waLoja(), ig = cfg('instagram', INSTAGRAM_LOJA).replace(/[@\s]/g, ''), hor = cfg('horario', HORARIO_LOJA), end = cfg('endereco', ENDERECO_LOJA);
+  $('#como').innerHTML = `<div class="comoi"><div class="steps3"><div><span class="n">1</span><span><b>Escolha</b><small>por marca ou categoria</small></span></div><div><span class="n">2</span><span><b>Monte o carrinho</b><small>e revise o pedido</small></span></div><div><span class="n">3</span><span><b>Pague no Pix</b><small>total ou com entrada</small></span></div></div></div>`;
   $('#ft').innerHTML = `<div class="fti">
-    <div><div class="fl"><svg viewBox="0 0 64 64"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#fff" stroke-width="3"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#fff" stroke-width="3"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#fff" font-family="sans-serif">R</text></svg><div><b>ROZIVALDO STORE</b><small>MODA · LINGERIE · SEX SHOP</small></div></div>
+    <div class="fb"><div class="fl"><svg viewBox="0 0 64 64"><path d="M14 22h36l-3 34H17z" fill="none" stroke="#fff" stroke-width="3"/><path d="M24 22v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#fff" stroke-width="3"/><text x="32" y="47" text-anchor="middle" font-size="22" font-weight="800" fill="#fff" font-family="sans-serif">R</text></svg><div><b>ROZIVALDO STORE</b><small>MODA · LINGERIE · SEX SHOP</small></div></div>
       <p>Moda, lingerie e sex shop com marcas selecionadas. Monte seu carrinho, pague no Pix e a gente cuida do resto.</p>
       <div class="soc">${wa ? `<a target="_blank" rel="noopener" href="${wa}">💬 WhatsApp</a>` : ''}${ig ? `<a target="_blank" rel="noopener" href="https://instagram.com/${ig}">📸 Instagram</a>` : ''}<a href="#" onclick="abrirSug();return false">💡 Pedir produto</a></div></div>
-    <div><h5>Navegue</h5><a href="#" onclick="nav({a:'',s:'',m:'',q:''});return false">Início</a><a href="#" onclick="irPara('novidades');return false">Novidades</a>${as.map(k => `<a href="#" onclick="nav({a:'${k}',s:'',m:''});return false">${IC[k]} ${k} <span style="color:#6f6f77">(${k == 'Sexshop' && !IDADE_OK ? '18+' : P.filter(p => p.categoria == k).length})</span></a>`).join('')}</div>
-    <div><h5>Nossas marcas</h5>${mv.length ? `<div class="fmarcas">${mv.slice(0, 9).map(({ m }) => `<button title="${esc(m.nome)}" onclick="nav({m:'${m.id}',q:''})">${logoM(m)}</button>`).join('')}</div>` : '<p>Em breve.</p>'}</div>
-    <div><h5>Atendimento e pagamento</h5><div class="pays"><span>⚡ Pix</span><span>💸 Entrada via Pix</span></div>
-      <p class="fi" style="margin:0 0 8px">Pague o valor total ou dê uma entrada e combine o restante com a loja.</p>
+    ${mv.length ? `<div class="fm"><h5>Nossas marcas</h5><div class="fmarcas">${mv.slice(0, 9).map(({ m }) => `<button title="${esc(m.nome)}" onclick="nav({m:'${m.id}',q:''})">${logoM(m)}</button>`).join('')}</div></div>` : ''}
+    <div class="fa"><h5>Atendimento e pagamento</h5><div class="pays"><span>⚡ Pix</span><span>💸 Entrada via Pix</span></div>
       ${hor ? `<div class="fi"><span>🕒</span><span>${esc(hor)}</span></div>` : ''}${end ? `<div class="fi"><span>📍</span><span>${esc(end)}</span></div>` : ''}
-      ${wa ? `<a href="${wa}" target="_blank" rel="noopener">📲 Falar com a loja no WhatsApp</a>` : '<div class="fi"><span>💬</span><span>Dúvidas? Peça o produto ou faça seu pedido e a loja te chama no WhatsApp.</span></div>'}</div>
+      ${wa ? `<a href="${wa}" target="_blank" rel="noopener">📲 Falar com a loja no WhatsApp</a>` : '<div class="fi"><span>💬</span><span>Dúvidas? Peça o produto ou faça o pedido e a loja te chama no WhatsApp.</span></div>'}
+      <a href="#" onclick="nav({v:'acompanhar'});return false">📦 Acompanhar pedido</a></div>
   </div>
   <div class="cp"><span>© ${new Date().getFullYear()} Rozivaldo Store · Todos os direitos reservados</span><button onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ Voltar ao topo</button></div>`;
 }
 
-/* ---------- páginas ---------- */
-function homeHtml() {
-  const bd = baseDia(), nov = ordenar(PH(), 'novos'), fotos = nov.filter(p => p.foto).slice(0, 4), as = areasHome(), mv = marcasDe(PH());
-  const nomes = mv.slice(0, 3).map(x => x.m.nome).join(', ');
-  const cats = []; as.forEach(k => { const ss = subsDe(k); if (ss.length) ss.forEach(s => cats.push({ t: s, k, s, img: (P.find(p => p.categoria == k && p.subcategoria == s && p.foto) || {}).foto })); else cats.push({ t: k, k, img: (P.find(p => p.categoria == k && p.foto) || {}).foto }); });
-  return `${heroHtml()}
-  <section class="bf"><div><span class="i">⚡</span><span><b>Pague no Pix</b><small>Gere o código e pague na hora</small></span></div><div><span class="i">💸</span><span><b>Entrada via Pix</b><small>Pague uma parte e combine o restante</small></span></div><div><span class="i">🏷️</span><span><b>Marcas selecionadas</b><small>${esc(nomes || 'Moda e lingerie')} e mais</small></span></div><div><span class="i">💬</span><span><b>Atendimento direto</b><small>Tire dúvidas com a loja</small></span></div></section>
-  ${mv.length ? `<div class="sh" id="marcas"><h2>Navegue por marca</h2></div><div class="brs">${mv.map(({ m }) => `<button class="bt" title="${esc(m.nome)}" onclick="nav({m:'${m.id}',q:''})">${logoM(m)}</button>`).join('')}</div>` : ''}
-  ${cats.length ? `<div class="sh"><h2>Escolha por categoria</h2></div><div class="ccs">${cats.slice(0, 14).map(c => `<button class="cc" data-s="${esc(c.s || '')}" onclick="nav({a:'${c.k}',s:this.dataset.s,m:''})"><div class="cp" ${c.img ? `style="background-image:url('${c.img}')"` : ''}>${c.img ? '' : IC[c.k]}</div><b>${esc(c.t)}</b>${c.s ? `<small>${c.k}</small>` : ''}</button>`).join('')}</div>` : ''}
-  <div class="sh" id="novidades"><h2>Novidades</h2></div><div class="gr">${nov.slice(0, 8).map(p => card(p, bd)).join('') || '<div class="vz">Em breve novidades por aqui.</div>'}</div>
-  ${as.map(k => { const l = ordenar(P.filter(p => p.categoria == k), 'novos'); return `<div class="sh"><h2>${IC[k]} ${k}</h2><button onclick="nav({a:'${k}',s:'',m:''})">Ver tudo (${l.length})</button></div><div class="gr">${l.slice(0, 4).map(p => card(p, bd)).join('')}</div>`; }).join('')}`;
-}
-function listHtml() {
-  const bd = baseDia(), l = ordenar(filtrar(), V.o), mm = mById(V.m);
-  const escopo = PV().filter(p => (!V.a || p.categoria == V.a)), mv = marcasDe(escopo), subs = V.a ? subsDe(V.a) : [];
-  const crumbs = ['<button onclick="nav({a:\'\',s:\'\',m:\'\',q:\'\'})">Início</button>'];
-  if (V.a) crumbs.push(`<button onclick="nav({a:'${V.a}',s:'',m:''})">${V.a}</button>`);
-  if (V.s) crumbs.push(V.s == '__outros' ? 'Outros' : esc(V.s)); if (mm) crumbs.push(esc(mm.nome)); if (V.q) crumbs.push('Busca');
-  const titulo = V.q ? `Resultados para “${esc(V.q)}”` : mm ? esc(mm.nome) : V.s ? (V.s == '__outros' ? 'Outros' : esc(V.s)) : V.a;
+/* ---------- página principal: filtros + produtos ---------- */
+const ORD_T = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XXG', 'ÚNICO', 'UNICO'];
+const cmpTam = (a, b) => { const i = ORD_T.indexOf(String(a).toUpperCase()), j = ORD_T.indexOf(String(b).toUpperCase()); return i >= 0 && j >= 0 ? i - j : i >= 0 ? -1 : j >= 0 ? 1 : String(a).localeCompare(String(b), 'pt', { numeric: true }); };
+function paginaHtml() {
+  const home = isHome(), bd = baseDia(), l = ordenar(filtrar(), V.o), mm = mById(V.m), lock = V.a == 'Sexshop' && !IDADE_OK;
+  const escopo = home ? PH() : V.a ? PV().filter(p => p.categoria == V.a) : PV(), mv = marcasDe(escopo), subs = V.a && !lock ? subsDe(V.a) : [];
+  const tams = [...new Set(escopo.flatMap(p => p.tamanhos || []))].sort(cmpTam), filtros = !!(V.a || V.s || V.m || V.q || V.t);
   const qn = nz(V.q.trim()), ocultos = !IDADE_OK && qn ? P.filter(p => ehAdulto(p) && nz(p.nome + ' ' + sku(p) + ' ' + (p.subcategoria || '') + ' ' + p.categoria + ' ' + ((mById(p.marca_id) || {}).nome || '')).includes(qn)).length : 0;
-  return `<div class="bc">${crumbs.join(' › ')}</div>
+  return `${home ? faixasHtml() : ''}
+  <div class="tbar"><div class="chs ar"><button class="${home ? 'on' : ''}" onclick="nav({a:'',s:'',m:'',q:'',t:''})">Todas</button>${areasComProd().map(k => `<button class="${V.a == k ? 'on' : ''}" onclick="nav({a:'${k}',s:'',m:''})">${k == 'Sexshop' ? '🔞 ' : ''}${k}</button>`).join('')}</div>
+    <div class="sels"><select aria-label="Marca" onchange="nav({m:this.value})"><option value="">Marca</option>${mv.map(({ m, n }) => `<option value="${m.id}" ${V.m == m.id ? 'selected' : ''}>${esc(m.nome)} (${n})</option>`).join('')}</select>
+      ${tams.length ? `<select aria-label="Tamanho" onchange="nav({t:this.value})"><option value="">Tamanho</option>${tams.map(t => `<option value="${esc(t)}" ${V.t == t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}
+      <select aria-label="Ordenar" onchange="nav({o:this.value},true)">${[['novos', 'Ordenar: mais novos'], ['menor', 'Menor preço'], ['maior', 'Maior preço'], ['nome', 'A → Z']].map(([v, t]) => `<option value="${v}" ${V.o == v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+      ${filtros ? `<button class="lnk2" onclick="nav({a:'',s:'',m:'',q:'',t:''})">limpar</button>` : ''}<span class="cnt">${l.length} ${l.length == 1 ? 'peça' : 'peças'}</span></div></div>
+  ${subs.length ? `<div class="chs sbs"><button class="${!V.s ? 'on' : ''}" onclick="nav({s:''})">Todas as categorias</button>${subs.map(s => `<button class="${V.s == s ? 'on' : ''}" data-s="${esc(s)}" onclick="nav({s:this.dataset.s})">${esc(s)}</button>`).join('')}</div>` : ''}
+  ${home ? bannersHtml() : ''}
   ${ocultos ? `<div class="res" style="margin-bottom:12px">🔞 ${ocultos} ${ocultos == 1 ? 'resultado' : 'resultados'} na área Sexshop (somente para maiores de 18 anos). <button class="lnk2" onclick="verAdulto()">Ver resultados</button></div>` : ''}
   ${mm && !V.q ? `<div class="bn"><span class="lg">${logoM(mm)}</span><div><h2>${esc(mm.nome)}</h2><small>${(mm.areas || []).map(a => IC[a] + ' ' + a).join(' · ')}</small></div></div>` : ''}
-  <div class="lh"><h1>${titulo}</h1><div><small>${l.length} ${l.length == 1 ? 'produto' : 'produtos'}</small> &nbsp;<select onchange="nav({o:this.value},true)">${[['novos', 'Mais novos'], ['menor', 'Menor preço'], ['maior', 'Maior preço'], ['nome', 'A → Z']].map(([v, t]) => `<option value="${v}" ${V.o == v ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
-  ${subs.length ? `<div class="chs"><button class="${!V.s ? 'on' : ''}" onclick="nav({s:''})">Todas as categorias</button>${subs.map(s => `<button class="${V.s == s ? 'on' : ''}" data-s="${esc(s)}" onclick="nav({s:this.dataset.s})">${esc(s)}</button>`).join('')}</div>` : ''}
-  ${mv.length > 1 || (mv.length == 1 && !V.m) ? `<div class="chs"><button class="${!V.m ? 'on' : ''}" onclick="nav({m:''})">Todas as marcas</button>${mv.map(({ m, n }) => `<button class="${V.m == m.id ? 'on' : ''}" onclick="nav({m:'${m.id}'})">${esc(m.nome)} · ${n}</button>`).join('')}</div>` : ''}
-  ${l.length ? `<div class="gr">${l.map(p => card(p, bd)).join('')}</div>` : `<div class="vz">Nenhum produto encontrado${V.q ? ' para “' + esc(V.q) + '”' : ''}.<br><br><button class="btn" onclick="abrirSug('${esc(V.q).replace(/'/g, '')}')">💡 Pedir ${V.q ? 'este produto' : 'um produto'}</button></div>`}`;
+  ${V.q ? `<div class="ctx">Resultados para “${esc(V.q)}”</div>` : ''}
+  ${l.length ? `<div class="gr">${l.map(p => card(p, bd)).join('')}</div>` : `<div class="vz">${P.length ? 'Nenhum produto encontrado' + (V.q ? ' para “' + esc(V.q) + '”' : '') + '.' : 'Em breve novidades por aqui.'}<br><br><button class="btn" onclick="abrirSug('${esc(V.q).replace(/'/g, '')}')">💡 Pedir ${V.q ? 'este produto' : 'um produto'}</button></div>`}`;
 }
 function render() {
   if (alvoAdulto()) { PEND = { a: V.a, s: V.s, m: V.m, q: V.q }; V = { ...V, a: '', s: '', m: '' }; try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} abrirIdade(); }
   if (V.a && !areasComProd().includes(V.a)) V.a = '';
   const on = cfg('faixa_ativa', 'true') != 'false', tx = cfg('faixa_texto', 'CATÁLOGO VIRTUAL · ROZIVALDO STORE'), fx = $('#faixa'); fx.hidden = !on || !tx; fx.textContent = tx;
-  $('#side').innerHTML = sideHtml(); navTopo(); rodape();
-  $('#main').innerHTML = V.v == 'acompanhar' ? trackHtml() : isHome() ? homeHtml() : listHtml(); updHeader(); cartRender();
+  $('#side').innerHTML = sideHtml(); rodape();
+  $('#main').innerHTML = V.v == 'acompanhar' ? trackHtml() : paginaHtml(); updHeader(); cartRender();
   if (isHome()) heroInit(); else clearInterval(HERO_T);
+  cdInit();
   if (V.v == 'acompanhar') trackAuto();
 }
 

@@ -329,3 +329,28 @@ notify pgrst, 'reload schema';
 -- Descrição do produto (aparece na tela do produto no catálogo)
 alter table produtos add column if not exists descricao text;
 notify pgrst, 'reload schema';
+
+-- ---------- atualizacao-anuncios2.sql ----------
+-- Cole no SQL Editor do Supabase e clique em Run
+-- Anúncios: faixa fina ou banner grande, contagem regressiva e cor própria do botão
+alter table anuncios add column if not exists formato text not null default 'banner';
+alter table anuncios add column if not exists contagem boolean not null default false;
+alter table anuncios add column if not exists cor_botao text;
+notify pgrst, 'reload schema';
+
+-- ---------- atualizacao-tempo-real.sql ----------
+-- Cole no SQL Editor do Supabase e clique em Run
+-- Atualização automática do sistema quando chega pedido, pedido de produto, pagamento etc.
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['pedidos','sugestoes','vendas','pagamentos','clientes','parcelas','contas','notas','historico_pedido'] loop
+      if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = t)
+         and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      end if;
+    end loop;
+  end if;
+end $$;
+notify pgrst, 'reload schema';

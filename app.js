@@ -44,13 +44,45 @@ function render() {
   if (cur == 'inicio') vitInit();
   if (cur == 'vitrine') vtxt();
   if (cur == 'venda') iniciaVenda();
-  const nn = sgPend().length, nu = nfUrgentes().length, tt = S.pd.length + nn + nu, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; } const nfb = $('#nfbadge'); if (nfb) { nfb.textContent = nu || ''; nfb.hidden = !nu; } const pdb = $('#pdbadge'); if (pdb) { pdb.textContent = S.pd.length || ''; pdb.hidden = !S.pd.length; }
+  const nn = sgPend().length, nu = nfUrgentes().length, tt = S.pd.length + nn + nu, pb = $('#pbadge'), sb = $('#sbadge'); pb.textContent = tt || ''; pb.hidden = !tt; document.title = (tt ? '(' + tt + ') ' : '') + 'Rozivaldo Store'; if (sb) { sb.textContent = nn || ''; sb.hidden = !nn; } const nfb = $('#nfbadge'); if (nfb) { nfb.textContent = nu || ''; nfb.hidden = !nu; } const pdb = $('#pdbadge'); if (pdb) { pdb.textContent = S.pd.length || ''; pdb.hidden = !S.pd.length; }
 }
 function modal(h) { $('#modal').innerHTML = `<div class="bk" onclick="if(event.target==this)fecha()"><div class="sheet">${h}</div></div>`; }
 function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== ATUALIZAÇÃO: botão, automática e em tempo real ===== */
+let ATU = { busy: false, pend: false, timer: null, poll: null, ch: null, on: false };
+const emUso = () => cur == 'venda' || !!($('#modal') && $('#modal').firstChild) || !!(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && document.activeElement.closest && document.activeElement.closest('#view'));
+function atuBtn(estado) { const b = document.getElementById('atualizaBtn'); if (!b) return; b.classList.toggle('gira', estado == 'gira'); b.classList.toggle('novo', estado == 'novo'); }
+async function atualizaTudo(manual) {
+  if (ATU.busy) return; ATU.busy = true; atuBtn('gira');
+  const antes = { pd: S.pd.length, sg: sgPend().length };
+  try { await load(); } catch (e) { ATU.busy = false; atuBtn(''); if (manual) toast('Não consegui atualizar agora'); return; }
+  ATU.busy = false;
+  const novoPed = S.pd.length > antes.pd, novoSg = sgPend().length > antes.sg;
+  if (novoPed) toast('🛒 Novo pedido recebido!'); else if (novoSg) toast('🔎 Novo pedido de produto!'); else if (manual) toast('Atualizado ✓');
+  if (!manual && emUso()) { ATU.pend = true; atuBtn('novo'); if (!novoPed && !novoSg) toast('Há novidades: toque em 🔄 para atualizar'); return; }
+  ATU.pend = false; atuBtn(''); render();
+}
+async function verificaMudanca() {
+  if (ATU.busy || !ATU.on) return;
+  try {
+    const [a, b] = await Promise.all([db.from('pedidos').select('id', { count: 'exact', head: true }), db.from('sugestoes').select('id', { count: 'exact', head: true })]);
+    if (a.error || b.error) return;
+    if (Math.min(a.count || 0, 300) != S.pt.length || (b.count || 0) != S.sg.length) atualizaTudo(false);
+  } catch (e) {}
+}
+function liveStart() {
+  if (ATU.on) return; ATU.on = true;
+  const deb = () => { clearTimeout(ATU.timer); ATU.timer = setTimeout(() => atualizaTudo(false), 700); };
+  try {
+    if (db.channel) { let ch = db.channel('rs-live'); ['pedidos', 'sugestoes', 'vendas', 'pagamentos', 'clientes', 'parcelas', 'contas', 'notas', 'historico_pedido'].forEach(t => { ch = ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, deb); }); ch.subscribe(); ATU.ch = ch; }
+  } catch (e) {}
+  ATU.poll = setInterval(() => { if (!document.hidden) verificaMudanca(); }, 25000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) verificaMudanca(); });
+  window.addEventListener('focus', verificaMudanca);
+}
 /* ===== CATÁLOGO VIRTUAL: anúncios, textos/contatos e etapas do pedido ===== */
 const cfgGet = (k, d = '') => { const v = (S.cfg || {})[k]; return v == null ? d : v; };
 const semTabela = e => e && /Could not find the table|relation .* does not exist|schema cache/i.test(e.message || '') ? 'Falta rodar o arquivo atualizacao-catalogo-virtual.sql no Supabase (SQL Editor).' : (e ? e.message : '');
@@ -62,12 +94,15 @@ function anDestino(a) {
   const v = a.link_valor || '';
   return { marca: 'Marca: ' + ((S.mc.find(m => m.id == v) || {}).nome || '—'), categoria: 'Categoria: ' + v, subcategoria: 'Categoria: ' + v.replace('|', ' › '), produto: 'Produto: ' + ((S.pr.find(p => p.id == v) || {}).nome || '—'), busca: 'Busca: “' + v + '”', url: 'Link: ' + v }[a.link_tipo] || 'Sem destino (só informativo)';
 }
-const anSlide = a => `<div class="anp" style="background:${esc(a.cor_fundo || '#111111')};color:${esc(a.cor_texto || '#ffffff')}">${a.imagem ? `<img src="${a.imagem}" alt="">` : ''}<div class="anpt"><b>${esc(a.titulo || 'Título do anúncio')}</b>${a.subtitulo ? `<span>${esc(a.subtitulo)}</span>` : ''}${a.link_tipo && a.link_tipo != 'nenhum' ? `<em style="background:${esc(a.cor_texto || '#ffffff')};color:${esc(a.cor_fundo || '#111111')}">${esc(a.texto_botao || 'Ver agora')}</em>` : ''}</div></div>`;
+const anSlide = a => {
+  const bg = a.cor_fundo || '#111111', tx = a.cor_texto || '#ffffff', k = a.link_tipo && a.link_tipo != 'nenhum', bt = a.cor_botao || tx, btx = a.cor_botao ? '#ffffff' : bg;
+  return `<div class="anp ${a.formato == 'faixa' ? 'faixa' : ''}" style="background:${esc(bg)};color:${esc(tx)}">${a.imagem ? `<img src="${a.imagem}" alt="">` : ''}<div class="anpt"><b>${esc(a.titulo || 'Título do anúncio')}</b>${a.subtitulo ? `<span>${esc(a.subtitulo)}</span>` : ''}${a.contagem && a.fim ? '<span class="anpc">⏱ termina em 00d 00h 00m 00s</span>' : ''}${k ? `<em style="background:${esc(bt)};color:${esc(btx)}">${esc(a.texto_botao || 'Ver agora')}</em>` : ''}</div></div>`;
+};
 function anuncios() {
   const l = [...(S.an || [])].sort((a, b) => a.ordem - b.ordem);
   return `<div class="row"><h1>Anúncios do catálogo</h1><button class="btn" onclick="formAn()">+ Novo anúncio</button></div>
   <p class="mut">Banners que aparecem no topo do catálogo do cliente. Ao tocar, o cliente vai para a marca, categoria, produto, busca ou link que você escolher. Promoções (Black Friday, liquidação...) entram aqui, e você liga e desliga quando quiser.</p>
-  ${l.map((a, i) => { const [t, c] = anSit(a); return `<div class="card">${anSlide(a)}<div class="row" style="margin-top:8px"><span><em class="tag ${c}">${t}</em> <small>${esc(anDestino(a))}</small>${a.inicio || a.fim ? `<small class="blk">${a.inicio ? 'de ' + dt(a.inicio) + ' ' : ''}${a.fim ? 'até ' + dt(a.fim) : ''}</small>` : ''}</span>
+  ${l.map((a, i) => { const [t, c] = anSit(a); return `<div class="card">${anSlide(a)}<div class="row" style="margin-top:8px"><span><em class="tag ${c}">${t}</em> <em class="tag">${a.formato == 'faixa' ? 'Faixa' : 'Banner'}</em> <small>${esc(anDestino(a))}</small>${a.inicio || a.fim ? `<small class="blk">${a.inicio ? 'de ' + dt(a.inicio) + ' ' : ''}${a.fim ? 'até ' + dt(a.fim) : ''}</small>` : ''}</span>
     <span><button class="lnk" onclick="anMove('${a.id}',-1)" ${i == 0 ? 'disabled' : ''}>↑</button><button class="lnk" onclick="anMove('${a.id}',1)" ${i == l.length - 1 ? 'disabled' : ''}>↓</button><button class="lnk" onclick="anAtivo('${a.id}')">${a.ativo ? 'Pausar' : 'Ativar'}</button><button class="lnk" onclick="formAn('${a.id}')">Editar</button><button class="lnk red" onclick="anExclui('${a.id}')">Excluir</button></span></div></div>`; }).join('') || '<p class="mut">Nenhum anúncio ainda. O catálogo mostra um banner padrão até você criar o primeiro.</p>'}`;
 }
 let ANIMG = null;
@@ -79,12 +114,15 @@ function formAn(id) {
   <input class="inp" name="titulo" maxlength="80" placeholder="Título (ex: Black Friday Rozivaldo)" value="${esc(a.titulo)}" required oninput="anPrev()">
   <input class="inp" name="subtitulo" maxlength="140" placeholder="Subtítulo (opcional)" value="${esc(a.subtitulo)}" oninput="anPrev()">
   <input class="inp" name="texto_botao" maxlength="30" placeholder="Texto do botão (ex: Ver ofertas)" value="${esc(a.texto_botao)}" oninput="anPrev()">
+  <small>Formato</small>
+  <select class="inp" name="formato" onchange="anPrev()"><option value="banner" ${a.formato != 'faixa' ? 'selected' : ''}>Banner grande (com imagem, rola em carrossel)</option><option value="faixa" ${a.formato == 'faixa' ? 'selected' : ''}>Faixa fina (barra no topo, com contagem regressiva)</option></select>
   <div class="card"><small>🖼️ Imagem do anúncio (opcional, formato horizontal)</small><div class="row" style="margin-top:6px"><label class="btn alt">Escolher imagem<input type="file" accept="image/*" hidden onchange="anImg(this)"></label><button type="button" class="lnk red" onclick="ANIMG=null;anPrev()">Remover imagem</button></div></div>
-  <div class="row" style="justify-content:flex-start;gap:18px"><label><small>Cor de fundo</small><br><input type="color" name="cor_fundo" value="${esc(a.cor_fundo || '#111111')}" oninput="anPrev()"></label><label><small>Cor do texto</small><br><input type="color" name="cor_texto" value="${esc(a.cor_texto || '#ffffff')}" oninput="anPrev()"></label></div>
+  <div class="row" style="justify-content:flex-start;gap:18px"><label><small>Cor de fundo</small><br><input type="color" name="cor_fundo" value="${esc(a.cor_fundo || '#111111')}" oninput="anPrev()"></label><label><small>Cor do texto</small><br><input type="color" name="cor_texto" value="${esc(a.cor_texto || '#ffffff')}" oninput="anPrev()"></label><label><small>Cor do botão</small><br><input type="color" name="cor_botao" value="${esc(a.cor_botao || '#e11d48')}" oninput="anBtCor()"></label><label class="row" style="gap:6px"><small>usar cor do botão</small><input type="checkbox" name="bt_cor" ${a.cor_botao ? 'checked' : ''} onchange="anPrev()"></label></div>
   <small>Para onde o cliente vai ao tocar no anúncio?</small>
   <select class="inp" name="link_tipo" onchange="anTipo();anPrev()">${[['nenhum', 'Ninguém (só informativo)'], ['marca', 'Uma marca'], ['categoria', 'Uma categoria (área)'], ['subcategoria', 'Uma subcategoria'], ['produto', 'Um produto'], ['busca', 'Uma busca'], ['url', 'Link externo']].map(([v, t]) => `<option value="${v}" ${a.link_tipo == v ? 'selected' : ''}>${t}</option>`).join('')}</select>
   <div id="anv"></div>
-  <div class="row"><label style="flex:1"><small>Começa em (opcional)</small><input class="inp" type="date" name="inicio" value="${a.inicio || ''}"></label><label style="flex:1"><small>Termina em (opcional)</small><input class="inp" type="date" name="fim" value="${a.fim || ''}"></label></div>
+  <div class="row"><label style="flex:1"><small>Começa em (opcional)</small><input class="inp" type="date" name="inicio" value="${a.inicio || ''}"></label><label style="flex:1"><small>Termina em (opcional)</small><input class="inp" type="date" name="fim" value="${a.fim || ''}" oninput="anPrev()"></label></div>
+  <label class="card row"><span>⏱ Mostrar contagem regressiva até a data final</span><input type="checkbox" name="contagem" ${a.contagem ? 'checked' : ''} onchange="anPrev()"></label>
   <label class="card row"><span>No ar (ativo)</span><input type="checkbox" name="ativo" ${a.ativo ? 'checked' : ''}></label>
   <button class="btn w">Salvar anúncio</button><button type="button" class="btn alt w" style="margin-top:8px" onclick="fecha()">Cancelar</button></form>`);
   anTipo(a.link_valor); anPrev();
@@ -99,9 +137,10 @@ function anTipo(val) {
     busca: `<input class="inp" name="lval" maxlength="60" placeholder="O que buscar (ex: camisa polo)" value="${esc(val || '')}">`,
     url: `<input class="inp" name="lval" type="url" maxlength="300" placeholder="https://..." value="${esc(val || '')}">` }[t] || '';
 }
+function anBtCor() { const f = $('#anf'); if (f) f.bt_cor.checked = true; anPrev(); }
 function anPrev() {
   const f = $('#anf'), p = $('#anprev'); if (!f || !p) return;
-  p.innerHTML = anSlide({ titulo: f.titulo.value, subtitulo: f.subtitulo.value, texto_botao: f.texto_botao.value, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, imagem: ANIMG, link_tipo: f.link_tipo.value });
+  p.innerHTML = anSlide({ titulo: f.titulo.value, subtitulo: f.subtitulo.value, texto_botao: f.texto_botao.value, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, cor_botao: f.bt_cor.checked ? f.cor_botao.value : null, imagem: ANIMG, link_tipo: f.link_tipo.value, formato: f.formato.value, contagem: f.contagem.checked, fim: f.fim.value });
 }
 async function anImg(inp) {
   const f = inp.files[0]; inp.value = ''; if (!f) return;
@@ -114,7 +153,8 @@ async function salvaAn(e, id) {
   if (tipo != 'nenhum' && !val) return toast('Escolha para onde o anúncio leva');
   if (tipo == 'url' && !/^https?:\/\//i.test(val)) return toast('O link precisa começar com http:// ou https://');
   const ordem = id ? (S.an.find(x => x.id == id) || {}).ordem : Math.max(0, ...S.an.map(a => a.ordem)) + 1;
-  const d = { titulo: f.titulo.value.trim(), subtitulo: f.subtitulo.value.trim() || null, texto_botao: f.texto_botao.value.trim() || null, imagem: ANIMG, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, link_tipo: tipo, link_valor: tipo == 'nenhum' ? null : val, inicio: f.inicio.value || null, fim: f.fim.value || null, ativo: f.ativo.checked, ordem };
+  if (f.contagem.checked && !f.fim.value) return toast('Para mostrar a contagem regressiva, informe a data em que o anúncio termina');
+  const d = { titulo: f.titulo.value.trim(), subtitulo: f.subtitulo.value.trim() || null, texto_botao: f.texto_botao.value.trim() || null, imagem: ANIMG, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, cor_botao: f.bt_cor.checked ? f.cor_botao.value : null, formato: f.formato.value, contagem: f.contagem.checked, link_tipo: tipo, link_valor: tipo == 'nenhum' ? null : val, inicio: f.inicio.value || null, fim: f.fim.value || null, ativo: f.ativo.checked, ordem };
   const r = id ? await db.from('anuncios').update(d).eq('id', id) : await db.from('anuncios').insert(d);
   if (r.error) return toast('Erro: ' + semTabela(r.error));
   fecha(); await load(); render(); toast('Anúncio salvo');
@@ -1879,7 +1919,7 @@ $('#lf').onsubmit = async e => {
 async function start() {
   const { data } = await db.auth.getSession();
   $('#login').hidden = !!data.session; $('#app').hidden = !data.session;
-  if (data.session) { await load(); const g = new URLSearchParams(location.search).get('go'); if (['venda', 'cobranca', 'fluxo', 'contas', 'historico', 'clientes', 'dash'].includes(g)) cur = g; render(); const nv = sgNovas(); if (nv.length) setTimeout(() => toast('🔎 ' + nv.length + (nv.length == 1 ? ' novo pedido' : ' novos pedidos') + ' de produto: ' + sgResumo(nv)), 700); }
+  if (data.session) { await load(); const g = new URLSearchParams(location.search).get('go'); if (['venda', 'cobranca', 'fluxo', 'contas', 'historico', 'clientes', 'dash'].includes(g)) cur = g; render(); liveStart(); const nv = sgNovas(); if (nv.length) setTimeout(() => toast('🔎 ' + nv.length + (nv.length == 1 ? ' novo pedido' : ' novos pedidos') + ' de produto: ' + sgResumo(nv)), 700); }
 }
 /* ===== APLICATIVO INSTALÁVEL ===== */
 let INST = null;

@@ -206,3 +206,10 @@ html.claro .kpi b.grn{color:#15803d}
 .anpt{position:relative;padding:18px 20px;display:flex;flex-direction:column;gap:6px;max-width:75%;text-shadow:0 1px 8px #0004}
 .anpt b{font-size:1.25rem;line-height:1.15}.anpt span{opacity:.92;font-size:.9rem}
 .anpt em{align-self:flex-start;font-style:normal;font-weight:700;font-size:.78rem;padding:7px 14px;border-radius:99px;margin-top:4px;text-shadow:none}
+
+/* atualizar */
+.bell{position:relative}
+.gira svg{animation:giro .8s linear infinite}@keyframes giro{to{transform:rotate(360deg)}}
+.bell.novo::after{content:"";position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2px var(--pan)}
+.anp.faixa{min-height:70px}.anp.faixa .anpt{max-width:none;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 16px}
+.anpc{font-size:.76rem;opacity:.92}
