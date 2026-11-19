@@ -354,3 +354,47 @@ begin
   end if;
 end $$;
 notify pgrst, 'reload schema';
+
+-- ---------- atualizacao-areas-anuncios.sql ----------
+-- Cole no SQL Editor do Supabase e clique em Run
+-- 1) Categorias editáveis (Masculino, Feminino, Infantil, Acessórios...) e 2) anúncios com imagem do celular
+
+-- Categorias da loja (você cria, renomeia, reordena e marca as de conteúdo adulto)
+create table if not exists areas (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (char_length(nome) between 1 and 30),
+  icone text not null default '🏷️',
+  adulto boolean not null default false,
+  ordem int not null default 0,
+  criado_em timestamptz default now()
+);
+create unique index if not exists areas_unica on areas (lower(nome));
+alter table areas enable row level security;
+drop policy if exists acesso_logado on areas;
+create policy acesso_logado on areas for all to authenticated using (true) with check (true);
+drop policy if exists areas_publicas on areas;
+create policy areas_publicas on areas for select to anon using (true);
+insert into areas (nome, icone, adulto, ordem)
+select * from (values ('Masculino','👔',false,1), ('Feminino','👗',false,2), ('Lingerie','💗',false,3), ('Sexshop','🔥',true,4)) v(nome, icone, adulto, ordem)
+where not exists (select 1 from areas);
+
+-- Libera nomes de categoria novos: remove as travas antigas que só aceitavam as 4 categorias originais
+do $$
+declare r record;
+begin
+  for r in
+    select c.conrelid::regclass::text as tbl, c.conname
+    from pg_constraint c
+    where c.contype = 'c'
+      and c.conrelid::regclass::text in ('itens_venda', 'subcategorias', 'produtos')
+      and pg_get_constraintdef(c.oid) ilike '%Masculino%'
+  loop
+    execute format('alter table %s drop constraint %I', r.tbl, r.conname);
+  end loop;
+end $$;
+
+-- Anúncios: imagem própria para o celular e modo "só a imagem"
+alter table anuncios add column if not exists imagem_mobile text;
+alter table anuncios add column if not exists so_imagem boolean not null default false;
+
+notify pgrst, 'reload schema';

@@ -9,12 +9,12 @@ const opts = a => a.map(x => `<option>${x}</option>`).join('');
 const sum = (a, f) => a.reduce((t, x) => t + Number(f(x) || 0), 0);
 const mes = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 let F = { de: mes(new Date()) + '-01', ate: '', cli: '' };
-let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [], mc: [], nf: [], an: [], cfg: {}, et: [] }, cur = 'inicio', curId = null;
+let S = { c: [], v: [], p: [], pr: [], pa: [], ct: [], pd: [], pt: [], sg: [], sc: [], mc: [], nf: [], an: [], cfg: {}, et: [], ar: [] }, cur = 'inicio', curId = null;
 
 function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2800); }
 
 async function load() {
-  const [c, v, p, pr, pa, ct, pd, sg, sc, mc, nf, an, cf, et] = await Promise.all([
+  const [c, v, p, pr, pa, ct, pd, sg, sc, mc, nf, an, cf, et, ar] = await Promise.all([
     db.from('clientes').select('*').order('nome'),
     db.from('vendas').select('*, itens_venda(*)').order('data', { ascending: false }),
     db.from('pagamentos').select('*').order('criado_em', { ascending: false }),
@@ -28,9 +28,10 @@ async function load() {
     db.from('notas').select('*').order('data_compra', { ascending: false }).limit(500),
     db.from('anuncios').select('*').order('ordem'),
     db.from('configuracoes').select('*'),
-    db.from('etapas_pedido').select('*').order('ordem')
+    db.from('etapas_pedido').select('*').order('ordem'),
+    db.from('areas').select('*').order('ordem')
   ]);
-  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [], mc: mc.data || [], nf: nf.data || [], an: an.data || [], cfg: Object.fromEntries((cf.data || []).map(x => [x.chave, x.valor])), et: et.data || [] };
+  S = { c: c.data || [], v: v.data || [], p: p.data || [], pr: pr.data || [], pa: pa.data || [], ct: ct.data || [], pt: pd.data || [], pd: (pd.data || []).filter(p => p.status == 'novo'), sg: sg.data || [], sc: sc.data || [], mc: mc.data || [], nf: nf.data || [], an: an.data || [], cfg: Object.fromEntries((cf.data || []).map(x => [x.chave, x.valor])), et: et.data || [], ar: ar.data || [] }; aplicaAreas();
 }
 function info(id) {
   const vs = S.v.filter(v => v.cliente_id == id), ps = S.p.filter(p => p.cliente_id == id);
@@ -51,6 +52,72 @@ function fecha() { PREPROD = null; $('#modal').innerHTML = ''; }
 
 /* ===== INÍCIO: vitrine, recentes, voz e vitrine WhatsApp ===== */
 let AUTO = null;
+/* ===== CATEGORIAS EDITÁVEIS (Masculino, Infantil, Acessórios...) ===== */
+const PALETA = ['#3b6ab0', '#a24bd0', '#d6409f', '#d23a4e', '#2f9e8f', '#e08a1e', '#5a7d2a', '#6b5bd6'];
+const arOrd = () => [...(S.ar || [])].sort((a, b) => a.ordem - b.ordem);
+function aplicaAreas() {
+  if (!S.ar || !S.ar.length) return;
+  const l = arOrd();
+  CATS.splice(0, CATS.length, ...l.map(a => a.nome));
+  Object.keys(IC).forEach(k => { if (!CATS.includes(k)) delete IC[k]; });
+  l.forEach((a, i) => { IC[a.nome] = a.icone || '🏷️'; if (!CC[a.nome]) CC[a.nome] = PALETA[i % PALETA.length]; });
+}
+const areaAdulta = nome => !!(S.ar || []).find(a => a.nome == nome && a.adulto);
+function formCats() {
+  const sem = !(S.ar || []).length, ars = sem ? CATS.map(n => ({ id: null, nome: n, icone: IC[n] || '🏷️', adulto: n == 'Sexshop' })) : arOrd();
+  modal(`<h2>🗂️ Categorias</h2><p class="mut">Crie as categorias da loja (ex.: Masculino, Infantil, Acessórios) e, dentro de cada uma, as subcategorias (ex.: Camisas, Bermudas). Elas aparecem no catálogo quando tiverem produtos.</p>
+  ${sem ? '<div class="card" style="border-color:#7f1d1d"><small class="red">Para criar categorias novas, rode o arquivo atualizacao-areas-anuncios.sql no Supabase (SQL Editor). Enquanto isso, só as subcategorias podem ser editadas.</small></div>' : ''}
+  ${ars.map((a, i) => `<div class="card"><div class="row"><b>${esc(a.icone)} ${esc(a.nome)} ${a.adulto ? '<em class="tag bad">+18</em>' : ''}</b>${a.id ? `<span><button class="lnk" onclick="moveArea('${a.id}',-1)" ${i == 0 ? 'disabled' : ''}>↑</button><button class="lnk" onclick="moveArea('${a.id}',1)" ${i == ars.length - 1 ? 'disabled' : ''}>↓</button><button class="lnk" onclick="formArea('${a.id}')">Editar</button><button class="lnk red" onclick="excluiArea('${a.id}')">Excluir</button></span>` : ''}</div>
+    <small class="blk">${S.pr.filter(p => p.categoria == a.nome).length} produtos</small>
+    ${(S.sc || []).filter(s => s.area == a.nome).map(s => { const q = S.pr.filter(p => p.categoria == a.nome && p.subcategoria == s.nome).length; return `<div class="row" style="margin-top:6px"><span>↳ ${esc(s.nome)} <small>(${q})</small></span><span><button class="lnk" onclick="renomeiaSub('${s.id}')">Renomear</button><button class="lnk red" onclick="excluiSub('${s.id}')">Excluir</button></span></div>`; }).join('')}
+    <form class="row" style="margin-top:8px;flex-wrap:nowrap" onsubmit="criaSub(event,'${esc(a.nome)}')"><input class="inp" name="n" maxlength="40" placeholder="Nova subcategoria em ${esc(a.nome)}" required style="margin:0"><button class="btn">Criar</button></form></div>`).join('')}
+  ${sem ? '' : '<button class="btn w" onclick="formArea()">+ Nova categoria</button>'}`);
+}
+function formArea(id) {
+  const a = id ? S.ar.find(x => x.id == id) : { nome: '', icone: '🏷️', adulto: false }; if (!a) return;
+  modal(`<h2>${id ? 'Editar' : 'Nova'} categoria</h2><form onsubmit="salvaArea(event,'${id || ''}')">
+  <div class="row" style="flex-wrap:nowrap;gap:8px"><input class="inp" name="icone" maxlength="4" value="${esc(a.icone)}" title="Emoji da categoria" style="width:76px;margin:0;text-align:center;font-size:1.3rem"><input class="inp" name="nome" maxlength="30" placeholder="Nome (ex: Infantil, Acessórios)" value="${esc(a.nome)}" required style="margin:0"></div>
+  <label class="card row"><span>🔞 Conteúdo adulto (o catálogo pede confirmação de 18 anos e esconde do início)</span><input type="checkbox" name="adulto" ${a.adulto ? 'checked' : ''}></label>
+  ${id ? '<small class="blk">Ao renomear, os produtos, subcategorias, marcas e anúncios dessa categoria são atualizados juntos.</small>' : ''}
+  <button class="btn w" style="margin-top:8px">Salvar categoria</button><button type="button" class="btn alt w" style="margin-top:8px" onclick="formCats()">Voltar</button></form>`);
+}
+async function salvaArea(e, id) {
+  e.preventDefault();
+  const f = e.target, nome = f.nome.value.trim().replace(/\s+/g, ' '), icone = (f.icone.value.trim() || '🏷️').slice(0, 4), adulto = f.adulto.checked;
+  if (!nome) return;
+  if (S.ar.some(x => nz(x.nome) == nz(nome) && x.id != id)) return toast('Já existe uma categoria com esse nome');
+  const a = id ? S.ar.find(x => x.id == id) : null;
+  const r = a ? await db.from('areas').update({ nome, icone, adulto }).eq('id', id) : await db.from('areas').insert({ nome, icone, adulto, ordem: Math.max(0, ...S.ar.map(x => x.ordem)) + 1 });
+  if (r.error) return toast('Erro: ' + semTabela(r.error));
+  if (a && a.nome != nome) {
+    const velho = a.nome;
+    await db.from('produtos').update({ categoria: nome }).eq('categoria', velho);
+    await db.from('subcategorias').update({ area: nome }).eq('area', velho);
+    for (const m of S.mc.filter(m => (m.areas || []).includes(velho))) await db.from('marcas').update({ areas: m.areas.map(x => x == velho ? nome : x) }).eq('id', m.id);
+    for (const an of S.an) {
+      if (an.link_tipo == 'categoria' && an.link_valor == velho) await db.from('anuncios').update({ link_valor: nome }).eq('id', an.id);
+      else if (an.link_tipo == 'subcategoria' && (an.link_valor || '').startsWith(velho + '|')) await db.from('anuncios').update({ link_valor: nome + an.link_valor.slice(velho.length) }).eq('id', an.id);
+    }
+  }
+  await load(); render(); formCats(); toast('Categoria salva');
+}
+async function moveArea(id, dir) {
+  const l = arOrd(), i = l.findIndex(x => x.id == id), j = i + dir; if (i < 0 || j < 0 || j >= l.length) return;
+  [l[i], l[j]] = [l[j], l[i]];
+  for (let k = 0; k < l.length; k++) if (l[k].ordem !== k + 1) { const r = await db.from('areas').update({ ordem: k + 1 }).eq('id', l[k].id); if (r.error) return toast('Erro: ' + r.error.message); }
+  await load(); render(); formCats();
+}
+async function excluiArea(id) {
+  const a = S.ar.find(x => x.id == id); if (!a) return;
+  const q = S.pr.filter(p => p.categoria == a.nome).length;
+  if (q) return alert(`A categoria "${a.nome}" ainda tem ${q} produto(s). Mova ou exclua esses produtos antes de excluir a categoria.`);
+  if (!confirm(`Excluir a categoria "${a.nome}" e as subcategorias dela?`)) return;
+  await db.from('subcategorias').delete().eq('area', a.nome);
+  for (const m of S.mc.filter(m => (m.areas || []).includes(a.nome))) await db.from('marcas').update({ areas: m.areas.filter(x => x != a.nome) }).eq('id', m.id);
+  const { error } = await db.from('areas').delete().eq('id', id);
+  if (error) return toast('Erro: ' + error.message);
+  await load(); render(); formCats(); toast('Categoria excluída');
+}
 /* ===== ATUALIZAÇÃO: botão, automática e em tempo real ===== */
 let ATU = { busy: false, pend: false, timer: null, poll: null, ch: null, on: false };
 const emUso = () => cur == 'venda' || !!($('#modal') && $('#modal').firstChild) || !!(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && document.activeElement.closest && document.activeElement.closest('#view'));
@@ -96,6 +163,7 @@ function anDestino(a) {
 }
 const anSlide = a => {
   const bg = a.cor_fundo || '#111111', tx = a.cor_texto || '#ffffff', k = a.link_tipo && a.link_tipo != 'nenhum', bt = a.cor_botao || tx, btx = a.cor_botao ? '#ffffff' : bg;
+  if (a.so_imagem && a.imagem) return `<div class="anp ${a.formato == 'faixa' ? 'faixa' : ''}" style="padding:0"><img class="anpi" src="${a.imagem}" alt=""></div>`;
   return `<div class="anp ${a.formato == 'faixa' ? 'faixa' : ''}" style="background:${esc(bg)};color:${esc(tx)}">${a.imagem ? `<img src="${a.imagem}" alt="">` : ''}<div class="anpt"><b>${esc(a.titulo || 'Título do anúncio')}</b>${a.subtitulo ? `<span>${esc(a.subtitulo)}</span>` : ''}${a.contagem && a.fim ? '<span class="anpc">⏱ termina em 00d 00h 00m 00s</span>' : ''}${k ? `<em style="background:${esc(bt)};color:${esc(btx)}">${esc(a.texto_botao || 'Ver agora')}</em>` : ''}</div></div>`;
 };
 function anuncios() {
@@ -105,10 +173,13 @@ function anuncios() {
   ${l.map((a, i) => { const [t, c] = anSit(a); return `<div class="card">${anSlide(a)}<div class="row" style="margin-top:8px"><span><em class="tag ${c}">${t}</em> <em class="tag">${a.formato == 'faixa' ? 'Faixa' : 'Banner'}</em> <small>${esc(anDestino(a))}</small>${a.inicio || a.fim ? `<small class="blk">${a.inicio ? 'de ' + dt(a.inicio) + ' ' : ''}${a.fim ? 'até ' + dt(a.fim) : ''}</small>` : ''}</span>
     <span><button class="lnk" onclick="anMove('${a.id}',-1)" ${i == 0 ? 'disabled' : ''}>↑</button><button class="lnk" onclick="anMove('${a.id}',1)" ${i == l.length - 1 ? 'disabled' : ''}>↓</button><button class="lnk" onclick="anAtivo('${a.id}')">${a.ativo ? 'Pausar' : 'Ativar'}</button><button class="lnk" onclick="formAn('${a.id}')">Editar</button><button class="lnk red" onclick="anExclui('${a.id}')">Excluir</button></span></div></div>`; }).join('') || '<p class="mut">Nenhum anúncio ainda. O catálogo mostra um banner padrão até você criar o primeiro.</p>'}`;
 }
-let ANIMG = null;
+let ANIMG = null, ANIMG2 = null;
+const AN_MED = { banner: { pc: [1600, 500], cel: [1080, 1080] }, faixa: { pc: [1600, 160], cel: [1080, 360] } };
+const dimsImg = src => new Promise(ok => { const im = new Image(); im.onload = () => ok([im.width, im.height]); im.onerror = () => ok([0, 0]); im.src = src; });
+function anMedTxt(fmt) { const m = AN_MED[fmt] || AN_MED.banner; return `<b>📐 Medidas das imagens (${fmt == 'faixa' ? 'faixa fina' : 'banner grande'})</b><br>Computador: <b>${m.pc[0]} × ${m.pc[1]} px</b> · Celular: <b>${m.cel[0]} × ${m.cel[1]} px</b><br><small>JPG ou PNG, até uns 500 KB. Deixe o texto importante no centro da imagem.</small>`; }
 function formAn(id) {
   const a = id ? S.an.find(x => x.id == id) : { cor_fundo: '#111111', cor_texto: '#ffffff', ativo: true, link_tipo: 'nenhum', texto_botao: 'Ver agora' };
-  if (!a) return; ANIMG = a.imagem || null;
+  if (!a) return; ANIMG = a.imagem || null; ANIMG2 = a.imagem_mobile || null;
   modal(`<h2>${id ? 'Editar' : 'Novo'} anúncio</h2><div id="anprev"></div>
   <form id="anf" onsubmit="salvaAn(event,'${id || ''}')">
   <input class="inp" name="titulo" maxlength="80" placeholder="Título (ex: Black Friday Rozivaldo)" value="${esc(a.titulo)}" required oninput="anPrev()">
@@ -116,7 +187,11 @@ function formAn(id) {
   <input class="inp" name="texto_botao" maxlength="30" placeholder="Texto do botão (ex: Ver ofertas)" value="${esc(a.texto_botao)}" oninput="anPrev()">
   <small>Formato</small>
   <select class="inp" name="formato" onchange="anPrev()"><option value="banner" ${a.formato != 'faixa' ? 'selected' : ''}>Banner grande (com imagem, rola em carrossel)</option><option value="faixa" ${a.formato == 'faixa' ? 'selected' : ''}>Faixa fina (barra no topo, com contagem regressiva)</option></select>
-  <div class="card"><small>🖼️ Imagem do anúncio (opcional, formato horizontal)</small><div class="row" style="margin-top:6px"><label class="btn alt">Escolher imagem<input type="file" accept="image/*" hidden onchange="anImg(this)"></label><button type="button" class="lnk red" onclick="ANIMG=null;anPrev()">Remover imagem</button></div></div>
+  <div class="card"><small>🖼️ Imagens do anúncio</small>
+    <div class="row" style="margin-top:6px;justify-content:flex-start"><label class="btn alt">💻 Imagem do computador<input type="file" accept="image/*" hidden onchange="anImg(this,'pc')"></label><button type="button" class="lnk red" onclick="ANIMG=null;anPrev()">Remover</button></div>
+    <div class="row" style="margin-top:6px;justify-content:flex-start"><label class="btn alt">📱 Imagem do celular (opcional)<input type="file" accept="image/*" hidden onchange="anImg(this,'cel')"></label><button type="button" class="lnk red" onclick="ANIMG2=null;anPrev()">Remover</button></div>
+    <div id="anmed" class="res" style="margin-top:8px"></div><div id="anaviso" style="margin-top:6px"></div>
+    <label class="row" style="margin-top:8px"><span>Mostrar só a imagem (sem texto, botão ou contagem por cima)</span><input type="checkbox" name="so_imagem" ${a.so_imagem ? 'checked' : ''} onchange="anPrev()"></label></div>
   <div class="row" style="justify-content:flex-start;gap:18px"><label><small>Cor de fundo</small><br><input type="color" name="cor_fundo" value="${esc(a.cor_fundo || '#111111')}" oninput="anPrev()"></label><label><small>Cor do texto</small><br><input type="color" name="cor_texto" value="${esc(a.cor_texto || '#ffffff')}" oninput="anPrev()"></label><label><small>Cor do botão</small><br><input type="color" name="cor_botao" value="${esc(a.cor_botao || '#e11d48')}" oninput="anBtCor()"></label><label class="row" style="gap:6px"><small>usar cor do botão</small><input type="checkbox" name="bt_cor" ${a.cor_botao ? 'checked' : ''} onchange="anPrev()"></label></div>
   <small>Para onde o cliente vai ao tocar no anúncio?</small>
   <select class="inp" name="link_tipo" onchange="anTipo();anPrev()">${[['nenhum', 'Ninguém (só informativo)'], ['marca', 'Uma marca'], ['categoria', 'Uma categoria (área)'], ['subcategoria', 'Uma subcategoria'], ['produto', 'Um produto'], ['busca', 'Uma busca'], ['url', 'Link externo']].map(([v, t]) => `<option value="${v}" ${a.link_tipo == v ? 'selected' : ''}>${t}</option>`).join('')}</select>
@@ -140,11 +215,18 @@ function anTipo(val) {
 function anBtCor() { const f = $('#anf'); if (f) f.bt_cor.checked = true; anPrev(); }
 function anPrev() {
   const f = $('#anf'), p = $('#anprev'); if (!f || !p) return;
-  p.innerHTML = anSlide({ titulo: f.titulo.value, subtitulo: f.subtitulo.value, texto_botao: f.texto_botao.value, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, cor_botao: f.bt_cor.checked ? f.cor_botao.value : null, imagem: ANIMG, link_tipo: f.link_tipo.value, formato: f.formato.value, contagem: f.contagem.checked, fim: f.fim.value });
+  p.innerHTML = anSlide({ titulo: f.titulo.value, subtitulo: f.subtitulo.value, texto_botao: f.texto_botao.value, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, cor_botao: f.bt_cor.checked ? f.cor_botao.value : null, imagem: ANIMG, link_tipo: f.link_tipo.value, formato: f.formato.value, contagem: f.contagem.checked, fim: f.fim.value, so_imagem: f.so_imagem.checked });
+  const md = $('#anmed'); if (md) md.innerHTML = anMedTxt(f.formato.value);
 }
-async function anImg(inp) {
+async function anImg(inp, qual) {
   const f = inp.files[0]; inp.value = ''; if (!f) return;
-  try { ANIMG = await redimN(await fileUrl(f), 1600, 0.82); } catch (e) { return toast('Não consegui ler essa imagem'); }
+  const fm = $('#anf').formato.value, alvo = (AN_MED[fm] || AN_MED.banner)[qual == 'cel' ? 'cel' : 'pc'];
+  try {
+    const src = await fileUrl(f), [w, h] = await dimsImg(src), url = await redimN(src, alvo[0], 0.82);
+    if (qual == 'cel') ANIMG2 = url; else ANIMG = url;
+    const av = $('#anaviso'), r = w / (h || 1), e = alvo[0] / alvo[1];
+    if (av) av.innerHTML = Math.abs(r - e) / e > 0.08 ? `<small class="red">A imagem escolhida tem ${w} × ${h} px. A medida ideal é ${alvo[0]} × ${alvo[1]} px; fora dessa proporção as bordas podem ser cortadas.</small>` : `<small class="grn">✓ Imagem com a proporção certa (${w} × ${h} px).</small>`;
+  } catch (e) { return toast('Não consegui ler essa imagem'); }
   anPrev();
 }
 async function salvaAn(e, id) {
@@ -153,8 +235,9 @@ async function salvaAn(e, id) {
   if (tipo != 'nenhum' && !val) return toast('Escolha para onde o anúncio leva');
   if (tipo == 'url' && !/^https?:\/\//i.test(val)) return toast('O link precisa começar com http:// ou https://');
   const ordem = id ? (S.an.find(x => x.id == id) || {}).ordem : Math.max(0, ...S.an.map(a => a.ordem)) + 1;
+  if (f.so_imagem.checked && !ANIMG) return toast('Para mostrar só a imagem, escolha a imagem do computador');
   if (f.contagem.checked && !f.fim.value) return toast('Para mostrar a contagem regressiva, informe a data em que o anúncio termina');
-  const d = { titulo: f.titulo.value.trim(), subtitulo: f.subtitulo.value.trim() || null, texto_botao: f.texto_botao.value.trim() || null, imagem: ANIMG, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, cor_botao: f.bt_cor.checked ? f.cor_botao.value : null, formato: f.formato.value, contagem: f.contagem.checked, link_tipo: tipo, link_valor: tipo == 'nenhum' ? null : val, inicio: f.inicio.value || null, fim: f.fim.value || null, ativo: f.ativo.checked, ordem };
+  const d = { titulo: f.titulo.value.trim(), subtitulo: f.subtitulo.value.trim() || null, texto_botao: f.texto_botao.value.trim() || null, imagem: ANIMG, imagem_mobile: ANIMG2, so_imagem: f.so_imagem.checked, cor_fundo: f.cor_fundo.value, cor_texto: f.cor_texto.value, cor_botao: f.bt_cor.checked ? f.cor_botao.value : null, formato: f.formato.value, contagem: f.contagem.checked, link_tipo: tipo, link_valor: tipo == 'nenhum' ? null : val, inicio: f.inicio.value || null, fim: f.fim.value || null, ativo: f.ativo.checked, ordem };
   const r = id ? await db.from('anuncios').update(d).eq('id', id) : await db.from('anuncios').insert(d);
   if (r.error) return toast('Erro: ' + semTabela(r.error));
   fecha(); await load(); render(); toast('Anúncio salvo');
@@ -1339,12 +1422,6 @@ function catalogo() {
   ${CATS.map(area).join('')}
   ${S.pr.length ? '' : '<p class="mut">Catálogo vazio. Cadastre seus produtos para escolher na hora da venda.</p>'}`;
 }
-function formCats() {
-  modal(`<h2>🗂️ Categorias</h2><p class="mut">Crie categorias dentro de cada área (ex.: Camisas, Bermudas, Shorts). No catálogo do cliente elas aparecem assim que tiverem produtos.</p>
-  ${CATS.map(k => `<div class="card"><b>${IC[k]} ${k}</b>
-    ${(S.sc || []).filter(s => s.area == k).map(s => { const q = S.pr.filter(p => p.categoria == k && p.subcategoria == s.nome).length; return `<div class="row" style="margin-top:6px"><span>${esc(s.nome)} <small>(${q})</small></span><span><button class="lnk" onclick="renomeiaSub('${s.id}')">Renomear</button><button class="lnk red" onclick="excluiSub('${s.id}')">Excluir</button></span></div>`; }).join('') || '<small class="blk">Nenhuma categoria ainda.</small>'}
-    <form class="row" style="margin-top:8px;flex-wrap:nowrap" onsubmit="criaSub(event,'${k}')"><input class="inp" name="n" maxlength="40" placeholder="Nova categoria em ${k}" required style="margin:0"><button class="btn">Criar</button></form></div>`).join('')}`);
-}
 async function criaSub(e, area) {
   e.preventDefault();
   const n = e.target.n.value.trim().replace(/\s+/g, ' ');
@@ -1808,6 +1885,7 @@ const nz = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const nm = x => Object.hasOwn(NUM, x) ? NUM[x] : parseFloat(x.replace(',', '.'));
 const stem = x => x.replace(/s$/, '');
 const guessCat = t => /lingerie|calcinha|suti|camisola|body|cinta|espartilho/.test(t) ? 'Lingerie' : /vibrador|gel|sexshop|algema|fantasia|lubrificante|pompoar|plug/.test(t) ? 'Sexshop' : /feminin|vestido|saia|blusa|cropped|short|legging/.test(t) ? 'Feminino' : 'Masculino';
+const catValida = c => CATS.includes(c) ? c : CATS[0];
 function interpreta(txt) {
   let t = ' ' + nz(txt).replace(/r\$\s*/g, '').replace(/(\d+)\s*reais?\s*e\s*(\d{1,2})\s*centavos?/g, '$1,$2') + ' ';
   const r = { itens: [] }, W = t.split(/[^a-z0-9]+/);
@@ -1827,7 +1905,7 @@ function interpreta(txt) {
     if (!w.length) return;
     const ws = new Set(w.map(stem));
     const pr = S.pr.filter(x => { const pw = (nz(x.nome).match(/[a-z]+/g) || []).filter(y => !STOP.has(y)).map(stem); return pw.length && pw.every(y => ws.has(y)); }).sort((a, b) => b.nome.length - a.nome.length)[0];
-    r.itens.push(pr ? { pid: pr.id, produto: pr.nome, categoria: pr.categoria, qtd, preco: preco ?? pr.preco } : { produto: w.join(' ').replace(/^./, c => c.toUpperCase()), categoria: guessCat(w.join(' ')), qtd, preco });
+    r.itens.push(pr ? { pid: pr.id, produto: pr.nome, categoria: pr.categoria, qtd, preco: preco ?? pr.preco } : { produto: w.join(' ').replace(/^./, c => c.toUpperCase()), categoria: catValida(guessCat(w.join(' '))), qtd, preco });
   });
   return r;
 }
